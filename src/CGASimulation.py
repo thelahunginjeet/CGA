@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import unittest, os
-from scipy import mean
+from scipy import mean,log
+import numpy as MATH
 from CGAPreprocessing import Utilities
 import CGAGenerator
 
@@ -67,18 +68,23 @@ class CGASimulation(object):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb')
-        self.mySimulation.populate(treetype='fixed',treeSize=5,popSize=10)
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=10)
+        self.mySimulation.populate(treetype='fixed',treeSize=5)
 
     def testPopulation(self):
+        print "\n\n----- testing population generation -----"
         for x in self.mySimulation.population:
             x()
             print 'String rep : %s' %(x.string)
 
     def testSimulation(self):
+        print "\n\n----- testing simulation -----"
         print self.mySimulation.indices
-        print self.mySimulation.singleFrequencies[20]
-        print (self.mySimulation.jointFrequencies[(7, 20)] * self.mySimulation.jointFrequencies[(20, 35)]).sum()
+        print 'Type of P_i  : ', type(MATH.asarray(self.mySimulation.singleFrequencies[20]))
+        print 'Type of P_ij : ', type(MATH.asarray(self.mySimulation.jointFrequencies[(7,20)]))
+        print (MATH.asarray(self.mySimulation.singleFrequencies[20]))*log(MATH.asarray(self.mySimulation.singleFrequencies[20]))
+        #print self.mySimulation.jointFrequencies[(7,20)]*log(self.mySimulation.jointFrequencies[(7,20)])
+        #print log(self.mySimulation.jointFrequencies[(7,20)])
         print self.mySimulation.distances[(7, 20)]
     
         

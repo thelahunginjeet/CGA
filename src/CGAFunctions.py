@@ -34,26 +34,20 @@ class Functions(dict):
 class ImmutableData(Functions):
 	"""Simple class for immutable data items; this is where we would store problem-specific 
 	loaded-in data, or constants like e, pi, etc.  This class can't deal with adding a random value; 
-	that still has to be done elsewhere."""	
+	that still has to be done elsewhere.  Protein data is also stored here, but not (initially)
+	with real values (just dummies of the appropriate size).  An adaptor (CGASimulation) has to plug 
+	in real values from a database and compute the N(N-1)/2 values needed to determine accuracy."""	
 	def __init__(self):
 		super(ImmutableData, self).__init__()
+		# dummy data with realistic properties
 		self['e'] = Data("e", r'e', MATH.e)
 		self['pi'] = Data("pi", r'\pi', MATH.pi)
 		self['1'] = Data("1", r'1', 1.0)
 		self['1/2'] = Data("1/2", r'\frac{1}{2}', 0.5)
 		self['1/N'] = Data("1/N", r'\frac{1}{N}', 1./20.)
-
-		
-class ProteinData(Functions):
-	"""Simple class to hold the protein frequency data; the initial (2x2) matrix associated with the
-	data elements ensures initial evaluteability but is just a dummy.  For real applications, external
-	functions update the node value to the current column from the MSA upon evaluation/looping.
-		  note : the indices indicate the ith column, jth column (>= i), and the joint i,j"""
-	def __init__(self, databaseFile):
-		super(ProteinData, self).__init__()
-		self['p_i'] = Data("p_i", r'\rho_{i}', MATH.array([[0.1,0.1],[0.9,0.9]]))
-		self['p_j'] = Data("p_j", r'\rho_{j}', MATH.array([[0.3,0.3],[0.7,0.7]]))
-		self['p_ij'] = Data("p_ij", r'\rho_{ij}', MATH.array([[0.2,0.4],[0.8,0.6]]))
+		self['p_i'] = Data("p_i", r'\rho_{i}', MATH.ones((20,20)))
+		self['p_j'] = Data("p_j", r'\rho_{j}', MATH.ones((20,20)))
+		self['p_ij'] = Data("p_ij", r'\rho_{ij}', MATH.eye(20))
 
 
 class ScalarizingFunctions(Functions):
@@ -92,6 +86,7 @@ class UnaryFunctions(Functions):
 		self['exp'] = Function("exp(%s)", r'\exp\left(%s\right)', MATH.exp)
 		self['log'] = Function("log(%s)", r'\log\left(%s\right)', MATH.log)
 		self['tanh'] = Function("tanh(%s)",r'\tanh\left(%s\right)', MATH.tanh)
+		self['transpose'] = Function("(%s)^T",r'%s^T',MATH.transpose)
 
 						
 class BinaryFunctions(Functions):
@@ -110,7 +105,6 @@ class CGAFunctionsTests(unittest.TestCase):
 		self.unaryFunctions = UnaryFunctions()
 		self.data = ImmutableData()
 		self.scalFunctions = ScalarizingFunctions()
-		self.proteinData = ProteinData('../tests/pdz_test.db')
 	
 	def testName(self):
 		print "\n----- testing function names -----"
@@ -118,7 +112,7 @@ class CGAFunctionsTests(unittest.TestCase):
 		self.assertEquals(self.unaryFunctions['log'].string,'log(%s)')
 		self.assertEquals(self.scalFunctions['tr'].string, 'tr(%s)')
 		self.assertEquals(self.data['pi'].string,'pi')
-		self.assertEquals(self.proteinData['p_ij'].string,'p_ij')
+		self.assertEquals(self.data['p_ij'].string,'p_ij')
 		
 	def testData(self):
 		print "\n----- testing data containers -----"
@@ -127,9 +121,9 @@ class CGAFunctionsTests(unittest.TestCase):
 		print '1 = ',self.data['1'].function
 		print '1/2 = ',self.data['1/2'].function
 		print '1/N = ',self.data['1/N'].function
-		print 'p_i = ',self.proteinData['p_i'].function
-		print 'p_j = ',self.proteinData['p_j'].function
-		print 'p_ij = ',self.proteinData['p_ij'].function
+		print 'p_i = ',self.data['p_i'].function
+		print 'p_j = ',self.data['p_j'].function
+		print 'p_ij = ',self.data['p_ij'].function
 
 if __name__ == '__main__':
 	unittest.main()

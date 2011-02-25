@@ -4,7 +4,6 @@
 #	- use the __call__ method for memoization for all of the evaluation method calls
 #	- use abstract base classes so that methods are implemented across subclasses (abc module)
 #	- ZeroDivisionErrors need to be checked during the function evaluations
-#   - fix evaluability of trees by forcing everything to be a numpy array.
 
 
 # NOTES :

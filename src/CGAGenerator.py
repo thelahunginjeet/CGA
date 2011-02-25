@@ -23,7 +23,6 @@ class CGAGenerator(object):
 		4. _swap()    : swap two subtrees
 	These base methods are used to make more GA-type operations, which are designed to ensure
 	return of an evaluateable tree (the atomic methods do not guarantee this)."""
-	# DEBUG - need to get generators that drop in protein nodes also
 	def __init__(self):
 		pass
 	

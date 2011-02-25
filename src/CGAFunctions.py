@@ -56,7 +56,7 @@ class ScalarizingFunctions(Functions):
 	of matrices and all other operators preserve this shape.  Therefore, for the coevolving
 	residue prediction problem, the root of the tree *must* be a scalarizing operator.  However, the 
 	scalarizing functions are written to work on scalars as well (just returning the scalar), in order
-	to run simple tests on non-protein data. """
+	to run simple tests on non-matrix input data. """
 	def __init__(self):	
 		super(ScalarizingFunctions, self).__init__()
 		self['tr'] = Function("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', self.trace)
@@ -71,8 +71,8 @@ class ScalarizingFunctions(Functions):
 	
 	def dsum(self,x):
 		try:
-			y = sum(sum(x))
-		except TypeError:
+			y = MATH.nansum(x)
+		except IndexError:
 			y = x
 		return y
 	

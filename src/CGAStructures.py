@@ -101,6 +101,10 @@ class DataNode(Node):
 		"""Return the data object so that it can be evaluated"""
 		return self.function
 	
+	def replaceData(self, realData):
+		"""Replaces the default data with real bonafide data"""
+		self.function = realData
+	
 class ScalarNode(Node):
 	"""General node for scalarizing function operations; this class is entirely redundant (unfortunately) with UnaryNode,
 	but we need it to ensure we don't swap the root node for a non-scalarizing node and lose evaluability (so we can
@@ -253,6 +257,7 @@ class AlgorithmTree(object):
 	
 	def __repr__(self):
 		"""String representation a tree."""
+		self()	# make sure the tree is evaluated first
 		output = "function eval : %s\nstring eval : %s\nLaTeX eval : %s\nEdges eval : %s" \
 			%(self.function, self.string, self.latex, self.graph.edges())
 		return output

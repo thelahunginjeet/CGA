@@ -48,7 +48,7 @@ class ImmutableData(Functions):
 		self['p_i'] = Data("p_i", r'\rho_{i}', MATH.ones((20,20)))
 		self['p_j'] = Data("p_j", r'\rho_{j}', MATH.ones((20,20)))
 		self['p_ij'] = Data("p_ij", r'\rho_{ij}', MATH.eye(20))
-
+		
 
 class ScalarizingFunctions(Functions):
 	"""This is a special set of functions that convert arrays into scalars; the final step in almost all

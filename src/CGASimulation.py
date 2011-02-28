@@ -78,7 +78,12 @@ class CGASimulation(object):
         for xi in self.indices:
             for xy in self.indices:
                 # fix the protein data in the terminal nodes which hold protein data
-                pass
+                for n in toreplace['p_i']:
+                    n.function = self.singleFrequencies[xi]
+                for n in toreplace['p_j']:
+                    n.function = self.singleFrequencies[xj]
+                for n in toreplace['p_ij']:
+                    n.function = self.singleFrequencies[(xi,xj)]
                 
 
     def calculate_accuracy(self,weights):

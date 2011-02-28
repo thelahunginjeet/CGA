@@ -162,6 +162,7 @@ class CGAFunctionsTests(unittest.TestCase):
     def testMSA(self):
         # this will write a test database file
         MSA('../tests/pdz_test.aln', '1IU0', '../tests/pdz_test.db')
+    
         
     
 if __name__ == '__main__':

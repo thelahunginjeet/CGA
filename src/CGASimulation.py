@@ -100,7 +100,7 @@ class CGASimulation(object):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=10)
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=5)
         self.mySimulation.populate(treetype='fixed',treeSize=5)
 
     def testPopulation(self):

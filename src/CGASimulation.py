@@ -81,7 +81,7 @@ class CGASimulation(object):
                 pass
                 
 
-    def calculate_accuracy(self,weights):
+    def calculate_accuracy(self, weights):
         """Calculates the accuracy from an input dictionary of weights, keyed on the same indices as the
         distances matrix."""
         accuracy = []

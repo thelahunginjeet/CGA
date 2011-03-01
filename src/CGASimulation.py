@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import unittest, os
+import unittest, os, time
 from scipy import mean,log
 import numpy as MATH
 from CGAPreprocessing import Utilities
@@ -81,7 +81,25 @@ class CGASimulation(object):
                 tree()
                 weights[(i, j)] = tree.function
         fitness = 1 + self.calculate_accuracy(weights)
-        print "\tfitness : ", fitness
+        return fitness
+        
+    
+    def evaluate_fitness_iter(self,tree):
+        """Calculates the same quantity as evaluate fitness; optimized version of the function (here)
+        can be compared to the putative 'slow' version (evaluate_fitness())."""
+        weights = {}
+        pi = [x for x in tree.termini if x.string == 'p_i']
+        pj = [x for x in tree.termini if x.string == 'p_j']
+        pij = [x for x in tree.termini if x.string == 'p_ij']
+        for i in self.indices:
+            for j in [x for x in self.indices if x > i]:
+                map(lambda x : x.replaceData(self.singleFrequencies[i]), pi)
+                map(lambda x : x.replaceData(self.singleFrequencies[j]), pj)
+                map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
+                tree()
+                weights[(i, j)] = tree.function
+        fitness = 1 + self.calculate_accuracy(weights)
+        return fitness
         
                 
     def calculate_accuracy(self, weights):
@@ -100,14 +118,14 @@ class CGASimulation(object):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=5)
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=10)
         self.mySimulation.populate(treetype='fixed',treeSize=5)
 
     def testPopulation(self):
         print "\n----- testing population generation -----"
         for x in self.mySimulation.population:
             x()
-            print 'String rep : %s, Value : %f' %(x.string,x.function)
+            print 'String rep : ', x.string
 
     def testShape(self):
         print "\n----- testing shape conversion of input data -----"
@@ -121,11 +139,25 @@ class CGASimulationTests(unittest.TestCase):
         print 'Distance(7,20) : ' , self.mySimulation.distances[(7, 20)]
         
     def testEvaluateFitness(self):
-        print "\n----- testing fitness evaluation -----"
+        print "\n----- testing and timing fitness evaluation -----"
+        # double loop is to not count eval() timing against the old version
         for tree in self.mySimulation.population:
             tree()
-            print tree.string
-            self.mySimulation.evaluate_fitness(tree)
+            print 'String : ', tree.string
+        # non-optimized version
+        t1 = time.clock()
+        for tree in self.mySimulation.population:
+            for i in xrange(0,10):
+                self.mySimulation.evaluate_fitness(tree)
+        t2 = time.clock()
+        print 'Elapsed clock time (basic) : %f seconds' %(t2-t1)
+        # optimized version
+        t1 = time.clock()
+        for tree in self.mySimulation.population:
+            for i in xrange(0,10):
+                self.mySimulation.evaluate_fitness_iter(tree)
+        t2 = time.clock()
+        print 'Elapsed clock time (optimized) : %f seconds' %(t2-t1)
         
 if __name__ == '__main__':
     unittest.main()

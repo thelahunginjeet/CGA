@@ -1,9 +1,7 @@
 README file for CGA project.
 
-RECENT:
-	- took a stab at calculating the fitness, might need optimization because map() is inside two loops
+branch	: optimization
+purpose : try out various speedups of slow calculations, for merging into production runs 
 
 TODO:
-	- random numbers in [0,1] as node; variable (random) at creation but fixed afterwards
-	- generate more realistic dummy P_ij (symmetric, rows/cols sum to one) and P_i,P_j (cols sum to one, one col repeated 20X) 
-	- do we need a nan-compatible trace (nansum(diag(M)), rather than M.trace())?
+	- try to speed up fitness calculation using generators (or other iterables)

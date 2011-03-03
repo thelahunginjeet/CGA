@@ -4,5 +4,8 @@ branch	: master
 purpose : everything that works goes here
 
 TODO:
-	-selection of parents
-	-mutation operators : per-node, or global?  or a mix?  
+	-mutation operators : per-node, or global?  or a mix? 
+	-what about nans during selection?  treat as zero?
+	-simulation has a lot of parameters; better way to handle them?
+	-look at calls in CGAGenerator for mutation operators; usually we will want to mutate a *given* node,
+		not a random one (node selection will occur outside the mutation operator)

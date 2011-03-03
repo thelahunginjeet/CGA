@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import unittest, os
+import unittest, os, time
 from scipy import mean,log
 import numpy as MATH
 from CGAPreprocessing import Utilities
@@ -68,30 +68,54 @@ class CGASimulation(object):
             fitness = 1 + accuracy
         Accuracy is computed in a different function, in order to allow easy swapping in of
         different definitions."""
-        # figure out which terminal nodes need a data replace (it's the same nodes for all positions,
-        #    and we have no idea how many times (if any) these appear
-        toreplace = {'p_i':list(),'p_j':list(),'p_ij':list()}
-        for t in tree.termini:
-            if toreplace.has_key(t.string):
-                toreplace[t.string].append(t)
-        # evaluate the tree to obtain the dictionary of weights, for all indices
-        for xi in self.indices:
-            for xy in self.indices:
-                # fix the protein data in the terminal nodes which hold protein data
-                pass
+        weights = {}
+        pi = [x for x in tree.termini if x.string == 'p_i']
+        pj = [x for x in tree.termini if x.string == 'p_j']
+        pij = [x for x in tree.termini if x.string == 'p_ij']
+        for i in self.indices:
+            for j in [x for x in self.indices if x > i]:
+                map(lambda x : x.replaceData(self.singleFrequencies[i]), pi)
+                map(lambda x : x.replaceData(self.singleFrequencies[j]), pj)
+                map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
+                tree()
+                weights[(i, j)] = tree.function
+        fitness = 1 + self.calculate_accuracy(weights)
+        return fitness
+    
+
+    def evaluate_fitness_iter(self,tree):
+        """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
+        defined as:
+            fitness = 1 + accuracy
+        Accuracy is computed in a different function, in order to allow easy swapping in of
+        different definitions."""
+        weights = {}
+        pi = [x for x in tree.termini if x.string == 'p_i']
+        pj = [x for x in tree.termini if x.string == 'p_j']
+        pij = [x for x in tree.termini if x.string == 'p_ij']
+        for i in self.indices:
+            for j in [x for x in self.indices if x > i]:
+                map(lambda x : x.replaceData(self.singleFrequencies[i]), pi)
+                map(lambda x : x.replaceData(self.singleFrequencies[j]), pj)
+                map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
+                tree()
+                weights[(i, j)] = tree.function
+        fitness = 1 + self.calculate_accuracy(weights)
+        return fitness
                 
 
     def calculate_accuracy(self,weights):
         """Calculates the accuracy from an input dictionary of weights, keyed on the same indices as the
         distances matrix."""
         accuracy = []
-        weights = 0.0
-#        proteinDiameter = mean(self.distances.values()) - min(self.distances.values())
-#        proteinMinimum = min(self.distances.values())
-#        for i,j in something:
-#            accuracy.append(weightedValue*((self.distances[(i,j)]-proteinMinimum)/proteinDiameter))
-#            weights += weightedValue
-#        finalAccuracy = 1 - sum(accuracy)/weights        
+        normalization = 0.0
+        for i,j in weights:
+            if (i,j) in self.distances:
+                value = weights[(i,j)]*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
+                accuracy.append(value)
+                normalization += weights[(i,j)]
+        return 1 - sum(accuracy)/normalization
+   
     
 
 class CGASimulationTests(unittest.TestCase):
@@ -115,6 +139,28 @@ class CGASimulationTests(unittest.TestCase):
         print 'Shape of entropy(P_7) :      %d X %d' % ((self.mySimulation.singleFrequencies[7]*log(self.mySimulation.singleFrequencies[7])).shape)
         print 'Shape of entropy(P_{7,20}) : %d X %d' % ((self.mySimulation.jointFrequencies[(7,20)]*log(self.mySimulation.jointFrequencies[(7,20)])).shape)
         print 'Distance(7,20) : ' , self.mySimulation.distances[(7, 20)]
+        
+    
+    def testEvaluateFitness(self):
+        print "\n----- testing and timing fitness evaluation -----"
+        # double loop is to not count eval() timing against the old version
+        for tree in self.mySimulation.population:
+            tree()
+            print 'String : ', tree.string
+            # non-optimized version
+            t1 = time.clock()
+            for tree in self.mySimulation.population:
+                for i in xrange(0,10):
+                    self.mySimulation.evaluate_fitness(tree)
+            t2 = time.clock()
+            print 'Elapsed clock time (basic) : %f seconds' %(t2-t1)
+            # optimized version
+            t1 = time.clock()
+            for tree in self.mySimulation.population:
+                for i in xrange(0,10):
+                    self.mySimulation.evaluate_fitness_iter(tree)
+            t2 = time.clock()
+            print 'Elapsed clock time (optimized) : %f seconds' %(t2-t1)
     
         
 if __name__ == '__main__':

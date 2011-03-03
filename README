@@ -1,9 +1,8 @@
 README file for CGA project.
 
-CHRIS LAST EDITED THIS FILE
-
-branch	: optimization
-purpose : try out various speedups of slow calculations, for merging into production runs 
+branch	: master
+purpose : everything that works goes here
 
 TODO:
-	- try to speed up fitness calculation using generators (or other iterables)
+	-selection of parents
+	-mutation operators : per-node, or global?  or a mix?  

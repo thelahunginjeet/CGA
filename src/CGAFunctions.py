@@ -59,17 +59,19 @@ class ScalarizingFunctions(Functions):
 	to run simple tests on non-matrix input data. """
 	def __init__(self):	
 		super(ScalarizingFunctions, self).__init__()
-		self['tr'] = Function("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', self.trace)
+		self['tr'] = Function("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', self.nantrace)
 		self['sum_ij'] = Function("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', self.dsum)
 		
-	def trace(self,x):
+	def nantrace(self,x):
+		# nan compatible trace
 		try:
-			y = x.trace()
+			y = MATH.nansum(x.diagonal())
 		except ValueError:
 			y = x
 		return y
 	
 	def dsum(self,x):
+		# nan compatible sub of the elements of a matrix
 		try:
 			y = MATH.nansum(x)
 		except IndexError:

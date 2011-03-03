@@ -3,16 +3,19 @@
 import unittest, os, time
 from scipy import mean,log
 import numpy as MATH
+import random
 from CGAPreprocessing import Utilities
 import CGAGenerator
 
 # TODO : 
 #  - write the simulation as a generator
+#  - undo hard-coding of parameters passed into selection functions
+#  - add mutations (right now offspring are just reshuffled, with duplicates)
 
 
 class CGASimulation(object):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, forestSize=100, timeSteps=100):
+    def __init__(self, databaseFile, pdbFile, forestSize=100, timeSteps=100, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.01):
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
         database = Utilities.readDatabase(databaseFile)
@@ -25,10 +28,19 @@ class CGASimulation(object):
         self.proteinDiameter = mean(self.distances.values()) - min(self.distances.values())
         self.proteinMinimum = min(self.distances.values())
         self.cgag = CGAGenerator.CGAGenerator()
-        # parameters specific to the simulation
+        # parameters specific to the simulation; fitness evaluations are expensive, so we 
+        #    keep track of them for any children which do not differ from their parents
         self.population = []
+        self.fitnesses = []
+        # mutation probabilities - some are per node, some are global (per tree)
+        #    pG : probability of growth
+        #    pP : probability of pruning
+        #    pM : probability of mutation
+        #    pC : probability of crossover (between two trees)
+        self.pG = pG
         self.time = 0
         self.forestSize = forestSize
+    
         
     def prepare_data(self):
         # change input frequencies from the db to 20X20 arrays (including single frequencies)
@@ -57,10 +69,57 @@ class CGASimulation(object):
                 self.population.append(self.cgag.generate(treeSize))
         else:
             raise TypeError, 'Unknown tree type : %s' % treetype
+        # evaluate the fitness of the initial forest
+        self.fitnesses = [self.evaluate_fitness(t) for t in self.population]
     
     def advance(self):
         """Step forward one step in time recording"""
-        pass
+        # first select a round of parents
+        parents = []
+        parentfit = []
+        for i in range(0,self.forestSize):
+            pt,pfit = self.select_parent(method='tournament')
+            parents.append(pt)
+            parentfit.append(pfit)
+        # now the offspring, two at a time
+        offspring = []
+        ofit = []
+        for i in range(0,self.forestSize,2):
+            indices = MATH.random.randint(self.forestSize,size=2)
+            offspring += [parents[indices[0]],parents[indices[1]]]
+            ofit += [parentfit[indices[0]],parentfit[indices[1]]]
+        # overwrite forest/fitness
+        self.population = offspring
+        self.fitnesses = ofit
+        
+    
+    def select_parent(self,method,**kwargs):
+        """A dispatcher that implements a variety of selection methods and returns a single parent
+        to place in the pool for the next generation.
+            Current allowed methods (all strings):
+                -'tournament' : requires a parameter k. two individuals are chosen at random; if 
+                    rand < k, the fitter individual is selected.  if rand > k, the less fit one is.
+        Regardless of selected method, the parent and its fitness are returned (as a tuple)"""
+        mstring = method+'_selection'
+        if hasattr(self,method):
+            ptree,pfit = getattr(self,method)(**kwargs)
+        else:
+            # to avoid the simulation grinding to a total halt, just pick parents at random
+            #    if there's a problem
+            pindx = MATH.random.randint(self.forestSize)
+            pt = self.population[pindx]
+            pfit = self.fitnesses[pindx]
+        return pt,pfit
+    
+    
+    def tournament_selection(self,k=0.75):
+        indices = MATH.random.randint(self.forestSize,size=2)
+        if MATH.random.rand() < k:
+            pindx = MATH.argmax(indices)
+        else:
+            pindx = MATH.argmin(indices)
+        return self.population[pindx],self.fitnesses[pindx]
+        
     
     def evaluate_fitness(self,tree):
         """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
@@ -120,14 +179,24 @@ class CGASimulation(object):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=10)
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=5)
         self.mySimulation.populate(treetype='fixed',treeSize=5)
+        
+    def testAdvance(self):
+        print "\n----- testing one-step advancement -----"
+        print 'Before advancement:'
+        print [x.string for x in self.mySimulation.population]
+        print self.mySimulation.fitnesses
+        self.mySimulation.advance()
+        print 'After advancement:'
+        print [x.string for x in self.mySimulation.population]
+        print self.mySimulation.fitnesses
 
     def testPopulation(self):
         print "\n----- testing population generation -----"
         for x in self.mySimulation.population:
             x()
-            print 'String rep : %s, Value : %f' %(x.string,x.function)
+            print 'String rep : %s' % x.string
 
     def testShape(self):
         print "\n----- testing shape conversion of input data -----"
@@ -140,27 +209,36 @@ class CGASimulationTests(unittest.TestCase):
         print 'Shape of entropy(P_{7,20}) : %d X %d' % ((self.mySimulation.jointFrequencies[(7,20)]*log(self.mySimulation.jointFrequencies[(7,20)])).shape)
         print 'Distance(7,20) : ' , self.mySimulation.distances[(7, 20)]
         
-    
-    def testEvaluateFitness(self):
+    def testSelectParent(self):
+        print"\n----- testing parental selection -----"
+        t1 = time.clock()
+        ptree,pfit = self.mySimulation.select_parent(method='tournament')
+        print 'Parent selected: %s, %f' % (ptree.string,pfit)
+        print 'Elapsed time : %f sec' % (time.clock()-t1)
+ 
+        
+    # bring this back in later when we actually are trying to optimize
+    """def testEvaluateFitness(self):
         print "\n----- testing and timing fitness evaluation -----"
         # double loop is to not count eval() timing against the old version
+        nRepeats = 1
         for tree in self.mySimulation.population:
             tree()
             print 'String : ', tree.string
             # non-optimized version
             t1 = time.clock()
             for tree in self.mySimulation.population:
-                for i in xrange(0,10):
+                for i in xrange(0,nRepeats):
                     self.mySimulation.evaluate_fitness(tree)
             t2 = time.clock()
             print 'Elapsed clock time (basic) : %f seconds' %(t2-t1)
             # optimized version
             t1 = time.clock()
             for tree in self.mySimulation.population:
-                for i in xrange(0,10):
+                for i in xrange(0,nRepeats):
                     self.mySimulation.evaluate_fitness_iter(tree)
             t2 = time.clock()
-            print 'Elapsed clock time (optimized) : %f seconds' %(t2-t1)
+            print 'Elapsed clock time (optimized) : %f seconds' %(t2-t1)"""
     
         
 if __name__ == '__main__':

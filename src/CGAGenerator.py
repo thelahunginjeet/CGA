@@ -2,6 +2,7 @@
 
 # TODO :
 #	- check the root being selected in all of the function calls
+#	- remove deprecated versions of mutation operators
 
 # NOTES :
 #   - as of 1/4/11, all "atomic" and GA-type functions pass basic tests, behaving as expected
@@ -215,8 +216,74 @@ class CGAGenerator(object):
 		return tree
 
 	@staticmethod
+	def point_mutate(tree,node):
+		"""In-place switch of the node in tree, with a random node of the same type."""
+		tree.update()		
+		if isinstance(node, UnaryNode):
+			newNode = UnaryNode(UnaryFunctions().returnRandom())
+		elif isinstance(node, DataNode):
+			newNode = DataNode(ImmutableData().returnRandom())
+		elif isinstance(node, EmptyNode):
+			newNode = EmptyNode()
+		elif isinstance(node, BinaryNode):
+			newNode = BinaryNode(BinaryFunctions().returnRandom())
+		elif isinstance(node, ScalarNode):
+			newNode = ScalarNode(ScalarizingFunctions().returnRandom())
+		else:
+			raise TypeError, "there seems to be a mystery node; try again . . ."
+		CGAGenerator._replace(tree,node,newNode)
+		tree.update()
+		
+	@staticmethod
+	def prune(tree,node):
+		"""Accepts one input tree and removes the subtree rooted at node; node is replaced with a terminal 
+		data node, so the tree remains evaluateable.  If the node chosen is a data node or the root,
+		nothing will be done - the tree will be unmodified."""
+		tree.update()
+		if type(node) is DataNode or type(node) is EmptyNode:
+			pass
+		else:
+			CGAGenerator._delete(node)
+			CGAGenerator._fillTreeWithRandomData(tree)
+		tree.update()
+		
+	@staticmethod
+	def grow(tree,tNode):
+		"""Takes an input tree and extends it by changing node into a new (random) Unary or 
+		Binary node.  New random data nodes are added as terminal leaves."""
+		# TODO - check that the input node is terminal data; right now this can do things unsafe
+		tree.update()
+		fNode = CGAGenerator._createRandomFunctionalNode()
+		CGAGenerator._extend(tNode, fNode)
+		dNode1 = CGAGenerator._createRandomDataNode()
+		dNode2 = CGAGenerator._createRandomDataNode()
+		fNode.setChildren(dNode1,dNode2)
+		tree.update()
+		
+	@staticmethod
+	def single_crossover(treeOne,nodeOne,treeTwo,nodeTwo):
+		"""Takes two input trees and swaps the subtrees rooted in nodeOne, nodeTwo respectively.
+		So after this operation:
+			treeOne's nodeOne subtree = treeTwo's nodeTwo subtree
+			treeTwo's nodeTwo subtree = treeOne's nodeOne subtree.
+		If either nodeOne or nodeTwo are their respective tree's root, the crossover will not be performed."""
+		treeOne.update()
+		treeTwo.update()
+		# check for roots; don't do anything if one is the root
+		if nodeOne.getHeader() == True or nodeTwo.getHeader() == True:
+			print 'One of these is the root!'
+			pass
+		else:	
+			CGAGenerator._swap(nodeOne, nodeTwo)
+			treeOne.update()
+			treeTwo.update()
+
+	'''
+	DEPRECATED METHOD
+	@staticmethod
 	def mutate(tree):
-		"""Takes an input tree and does an in-place switch of a random node."""
+		"""Takes an input tree and does an in-place switch of a random node.
+		DEPRECATED."""
 		tree.update()		
 		treeNode = random.choice(tree.nodes)
 		if isinstance(treeNode, UnaryNode):
@@ -233,8 +300,9 @@ class CGAGenerator(object):
 			raise TypeError, "there seems to be a mystery node; try again . . ."
 		CGAGenerator._replace(tree,treeNode,newNode)
 		tree.update()
-			
-			
+	'''	
+	'''
+	DEPRECATED METHOD	
 	@staticmethod
 	def grow(tree):
 		"""Takes an input tree and extends it by changing a random terminal data node into a new Unary or 
@@ -267,6 +335,9 @@ class CGAGenerator(object):
 		treeOne.update()
 		treeTwo.update()
 		
+	'''
+	'''
+	DEPRECATED METHOD
 	@staticmethod
 	def prune(tree):
 		"""Accepts one input tree and deletes a randomly chosen subtree; the node chosen is replaced with a 
@@ -281,9 +352,9 @@ class CGAGenerator(object):
 			CGAGenerator._delete(ranNode)
 			CGAGenerator._fillTreeWithRandomData(tree)
 		tree.update()
-		
+	'''
 
-	@classmethod
+	@staticmethod
 	def duplicate():
 		pass
 		
@@ -400,6 +471,19 @@ class CGAGeneratorTests(unittest.TestCase):
 		tree()
 		print tree
 		
+	def testPointMutate(self):
+		print "\n\n----- testing point_mutate(tree,node) -----"
+		print "Tree before mutation: "
+		self.testTree.update()
+		self.testTree()
+		print self.testTree
+		CGAGenerator.point_mutate(self.testTree,random.choice(self.testTree.nodes))
+		print "Tree after mutation: "
+		self.testTree.update()
+		self.testTree()
+		print self.testTree
+		
+	""" DEPRECATED TEST
 	def testMutate(self):
 		print "\n\n----- testing mutate(tree) -----"
 		print "Tree before mutation: "
@@ -411,7 +495,22 @@ class CGAGeneratorTests(unittest.TestCase):
 		self.testTree.update()
 		self.testTree()
 		print self.testTree
+	"""
 	
+	def testGrow(self):
+		print "\n\n----- testing grow(tree,tNode) -----"
+		print "Tree before extension: "
+		self.testTree.update()
+		self.testTree()
+		print self.testTree
+		CGAGenerator.grow(self.testTree,self.constant2)
+		print "Tree after extension: "
+		self.testTree.update()
+		self.testTree()
+		print self.testTree
+	
+	
+	""" DEPRECATED TEST
 	def testGrow(self):
 		print "\n\n----- testing grow(tree) -----"
 		print "Tree before extension: "
@@ -423,7 +522,36 @@ class CGAGeneratorTests(unittest.TestCase):
 		self.testTree.update()
 		self.testTree()
 		print self.testTree
+	"""
+	
+	def testCrossover(self):
+		print "\n\n----- testing crossover(tree1,node1,tree2,node2) -----"
+		# need another tree to crossover with the test tree
+		root = UnaryNode(self.unaryFunctions['log'])
+		node1 = BinaryNode(self.binaryFunctions['*'])
+		constant1 = DataNode(self.data['1/2'])
+		constant2 = DataNode(self.data['e'])
+		tree = AlgorithmTree(root)
+		root.setChildren(node1)
+		node1.setChildren(constant1,constant2)
+		print 'Trees before the crossover: '
+		self.testTree.update()
+		self.testTree()
+		print self.testTree
+		tree.update()
+		tree()
+		print tree
+		CGAGenerator.single_crossover(self.testTree,self.node2,tree,node1)
+		print 'Trees after the crossover: '
+		self.testTree.update()
+		self.testTree()
+		print self.testTree
+		tree.update()
+		tree()
+		print tree
 		
+	"""
+	DEPRECATED TEST
 	def testCrossover(self):
 		print "\n\n----- testing crossover(tree1,tree2) -----"
 		# need another tree to crossover with the test tree
@@ -449,7 +577,36 @@ class CGAGeneratorTests(unittest.TestCase):
 		tree.update()
 		tree()
 		print tree
+	"""
 	
+	def testPrune(self):
+		print "\n\n----- testing prune(tree,node) -----"
+		# need to make something that isn't just roots and data nodes so
+		# 	we are likely to pick a truncateable node
+		root = UnaryNode(self.unaryFunctions['log'])
+		node1 = UnaryNode(self.unaryFunctions['exp'])
+		node2 = UnaryNode(self.unaryFunctions['tanh'])
+		node3 = UnaryNode(self.unaryFunctions['sin'])
+		node4 = BinaryNode(self.binaryFunctions['*'])
+		constant1 = DataNode(self.data['1/2'])
+		constant2 = DataNode(self.data['e'])
+		tree = AlgorithmTree(root)
+		root.setChildren(node1)
+		node1.setChildren(node2)
+		node2.setChildren(node3)
+		node3.setChildren(node4)
+		node4.setChildren(constant1,constant2)
+		print "Tree before pruning: "
+		tree.update()
+		tree()
+		print tree
+		CGAGenerator.prune(tree,node3)
+		print "Tree after pruning: "
+		tree.update()
+		tree()
+		print tree
+	
+	"""DEPRECATED TEST
 	def testPrune(self):
 		print "\n\n----- testing prune(tree) -----"
 		# need to make something that isn't just roots and data nodes so
@@ -476,7 +633,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		tree.update()
 		tree()
 		print tree
-		
+	"""	
 		
 if __name__ == '__main__':
 	unittest.main()

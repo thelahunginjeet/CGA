@@ -35,8 +35,8 @@ class ImmutableData(Functions):
 	"""Simple class for immutable data items; this is where we would store problem-specific 
 	loaded-in data, or constants like e, pi, etc.  This class can't deal with adding a random value; 
 	that still has to be done elsewhere.  Protein data is also stored here, but not (initially)
-	with real values (just dummies of the appropriate size).  An adaptor (CGASimulation) has to plug 
-	in real values from a database and compute the N(N-1)/2 values needed to determine accuracy."""	
+	with real values (just dummies).  An adaptor (CGASimulation) has to plug in real values from a 
+	database and compute the N(N-1)/2 values needed to determine accuracy."""	
 	def __init__(self):
 		super(ImmutableData, self).__init__()
 		# dummy data with realistic properties
@@ -45,9 +45,9 @@ class ImmutableData(Functions):
 		self['1'] = Data("1", r'1', 1.0)
 		self['1/2'] = Data("1/2", r'\frac{1}{2}', 0.5)
 		self['1/N'] = Data("1/N", r'\frac{1}{N}', 1./20.)
-		self['p_i'] = Data("p_i", r'\rho_{i}', MATH.ones((20,20)))
-		self['p_j'] = Data("p_j", r'\rho_{j}', MATH.ones((20,20)))
-		self['p_ij'] = Data("p_ij", r'\rho_{ij}', MATH.eye(20))
+		self['p_i'] = Data("p_i", r'\rho_{i}', 1.0)
+		self['p_j'] = Data("p_j", r'\rho_{j}', 1.0)
+		self['p_ij'] = Data("p_ij", r'\rho_{ij}', 1.0)
 		
 
 class ScalarizingFunctions(Functions):
@@ -66,7 +66,7 @@ class ScalarizingFunctions(Functions):
 		# nan compatible trace
 		try:
 			y = MATH.nansum(x.diagonal())
-		except ValueError:
+		except:
 			y = x
 		return y
 	

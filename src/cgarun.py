@@ -23,7 +23,7 @@ def run_cga():
     dataLogger = CGALogging.DataLogger()
     mySim.attach(dataLogger)
     # generate an initial population (default will be exponentially distributed tree sizes
-    mySim.populate()
+    mySim.populate(treetype='fixed')
     # now start running and logging data
     for n in range(0,nGen):
         mySim.advance()

@@ -482,6 +482,19 @@ class CGAGeneratorTests(unittest.TestCase):
 		self.testTree()
 		print self.testTree
 		
+	def testRepeatedPointMutate(self):
+		print "\n\n----- testing repeated runs of point_mutate(tree,node) -----"
+		print "Tree before mutation: "
+		self.testTree.update()
+		self.testTree()
+		print self.testTree
+		for i in xrange(0,10000):
+			CGAGenerator.point_mutate(self.testTree,random.choice(self.testTree.nodes))
+		print "Tree after mutation: "
+		self.testTree.update()
+		self.testTree()
+		print self.testTree
+		
 	""" DEPRECATED TEST
 	def testMutate(self):
 		print "\n\n----- testing mutate(tree) -----"

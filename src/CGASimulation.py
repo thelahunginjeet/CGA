@@ -7,11 +7,11 @@ import random
 from CGAPreprocessing import Utilities
 from CGAStructures import AlgorithmTree
 import CGAGenerator
+from CGALogging import Subject,Observer,DataLogger
 
 # TODO : 
 #  - write the simulation as a generator
 #  - undo hard-coding of parameters passed into selection functions
-#  - add mutations (right now offspring are just reshuffled, with duplicates)
 #  - dangerous for CGAChromosome to do all comparisons based on fitness?
 
 class CGAChromosome(object):
@@ -28,9 +28,10 @@ class CGAChromosome(object):
             return cmp(self.fitness,other.fitness)
 
 
-class CGASimulation(object):
+class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
     def __init__(self, databaseFile, pdbFile, forestSize=100, timeSteps=100, pG = 0.001, pP = 0.001, pM = 0.5, pC = 0.01):
+        super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
         database = Utilities.readDatabase(databaseFile)
@@ -38,7 +39,11 @@ class CGASimulation(object):
         self.singleFrequencies = database['singleFrequencies']
         self.jointFrequencies = database['jointFrequencies']
         self.prepare_data()
-        self.forestSize = forestSize
+        if MATH.mod(forestSize,2):
+            self.forestSize = forestSize + 1
+            print 'Forest size has been adjusted to be even.'
+        else:
+            self.forestSize = forestSize
         # distances and protein diameter do not change
         self.distances = Utilities.calculateAtomicDistances(pdbFile)
         self.proteinDiameter = mean(self.distances.values()) - min(self.distances.values())
@@ -90,9 +95,8 @@ class CGASimulation(object):
         else:
             raise TypeError, 'Unknown tree type : %s' % treetype
 
-    
     def advance(self):
-        """Step forward one step in time recording"""
+        """Step forward one step in time recording.  Before advancing, """
         # first select a round of parents
         parents = [self.select_parent(method='tournament') for x in range(0,self.forestSize)]
         # now obtain the offspring, two at a time
@@ -101,6 +105,13 @@ class CGASimulation(object):
             offspring += self.mate(random.choice(parents),random.choice(parents))
         # overwrite current forest
         self.population = offspring
+        # a few things we want to save
+        minN = MATH.min([len(k.tree.nodes) for k in self.population])
+        maxN = MATH.max([len(k.tree.nodes) for k in self.population])
+        maxFit = MATH.nanmax([k.fitness for k in self.population])
+        wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
+        self.notify(time=self.time,minSize=minN,maxSize=maxN,maxFit=maxFit,wellFormed=wellFormed)
+        self.time += 1
         
     def mate(self,parentOne,parentTwo):
         """Accepts two parents and returns two offspring; if the offspring is unchanged from one of
@@ -118,7 +129,7 @@ class CGASimulation(object):
             # pick the nodes (roots won't crossover)
             nodeOne = random.choice(offOne.tree.nodes)
             nodeTwo = random.choice(offTwo.tree.nodes)
-            self.cgag.single_crossover(offOne.tree,nodeOne,offTwo,tree,nodeTwo)
+            self.cgag.single_crossover(offOne.tree,nodeOne,offTwo.tree,nodeTwo)
         # POINT MUTATION
         # now check for point mutations, in both trees
         for n in offOne.tree.nodes:
@@ -239,6 +250,9 @@ class CGASimulationTests(unittest.TestCase):
     def setUp(self):
         self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=5)
         self.mySimulation.populate(treetype='fixed',treeSize=5)
+        # create and attach a DataLogger
+        self.dataLogger = DataLogger()
+        self.mySimulation.attach(self.dataLogger)
         
     def testCGAChromosome(self):
         print "\n\n----- testing comparison operator overloads in CGAChromosome() -----"
@@ -248,14 +262,27 @@ class CGASimulationTests(unittest.TestCase):
             print 'Fitness %f > %f' %(c1.fitness,c2.fitness)
         else:
             print 'Fitness %f <= %f' %(c1.fitness,c2.fitness)
+        print 'Maximum fitness : ',MATH.max([c1,c2]).fitness
+        print 'Minimum fitness : ',MATH.min([c2,c2]).fitness
         
     def testAdvance(self):
         print "\n\n----- testing one-step advancement -----"
         print 'Before advancement:'
+        print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
         self.mySimulation.advance()
         print 'After advancement:'
+        print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
+        
+    def testDataLogging(self):
+        print "\n\n----- testing data logging -----"
+        print 'Advancing twice.'
+        self.mySimulation.advance()
+        self.mySimulation.advance()
+        print 'Logged Data:'
+        for k in self.dataLogger.data.keys():
+            print k,self.dataLogger.data[k]
         
     def testPopulation(self):
         print "\n\n----- testing population generation -----"

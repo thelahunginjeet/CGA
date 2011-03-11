@@ -4,10 +4,17 @@ branch	: master
 purpose : everything that works goes here
 
 TODO:
-	-mutation operators : per-node, or global?  or a mix? 
-	-what about nans during selection?  treat as zero?
-	-simulation has a lot of parameters; better way to handle them?
 	-need random [0,1] numbers in there somehow
-	-redundant calls to tree.update() in the mutation operators?
 	-remove deprecated mutation operators
 	-replace inefficient call to _fillWithRandomData() with a targeted replace of EmptyNode to DataNode
+	-would clean things up to make population a class (CGAPopulation); that would allow implementation
+		of methods to collect data (max fitness, mean, etc.)
+
+QUESTIONS/ISSUES:
+	-should we formally replace nan/inf/-inf with zero before an advance step?
+	-simulation has a lot of parameters; better way to handle them?
+	-are there redundant calls to tree.update() in the mutation operators?
+	-all mutation operators except crossover are per-node; do we want crossover to be per-node?
+	-discovered a "feature" (bug).  Since parents are selected two at a time, producing two offspring, 
+		odd forestSizes quickly become even (+1).  Changed things so that forestSize is forced to be
+		even (1 is added if forestSize is odd and a message is printed).

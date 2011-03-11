@@ -30,7 +30,7 @@ class CGAChromosome(object):
 
 class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, forestSize=100, timeSteps=100, pG = 0.001, pP = 0.001, pM = 0.5, pC = 0.01):
+    def __init__(self, databaseFile, pdbFile, forestSize=100, timeSteps=100, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.05):
         super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
@@ -84,7 +84,7 @@ class CGASimulation(Subject):
         """
         if treetype == 'exponential':
             for i in range(self.forestSize):
-                tree = self.cgag.expGenerate(p)
+                tree = self.cgag.expgenerate(p)
                 fitness = self.evaluate_fitness(tree)
                 self.population.append(CGAChromosome(tree,fitness))
         elif treetype == 'fixed':
@@ -110,7 +110,8 @@ class CGASimulation(Subject):
         maxN = MATH.max([len(k.tree.nodes) for k in self.population])
         maxFit = MATH.nanmax([k.fitness for k in self.population])
         wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
-        self.notify(time=self.time,minSize=minN,maxSize=maxN,maxFit=maxFit,wellFormed=wellFormed)
+        meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
+        self.notify(time=self.time,minSize=minN,maxSize=maxN,maxFit=maxFit,wellFormed=wellFormed,meanFit=meanFit)
         self.time += 1
         
     def mate(self,parentOne,parentTwo):
@@ -248,7 +249,7 @@ class CGASimulation(Subject):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=5)
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6)
         self.mySimulation.populate(treetype='fixed',treeSize=5)
         # create and attach a DataLogger
         self.dataLogger = DataLogger()

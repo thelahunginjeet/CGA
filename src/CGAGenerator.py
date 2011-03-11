@@ -271,7 +271,6 @@ class CGAGenerator(object):
 		treeTwo.update()
 		# check for roots; don't do anything if one is the root
 		if nodeOne.getHeader() == True or nodeTwo.getHeader() == True:
-			print 'One of these is the root!'
 			pass
 		else:	
 			CGAGenerator._swap(nodeOne, nodeTwo)

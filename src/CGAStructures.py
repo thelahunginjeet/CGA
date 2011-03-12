@@ -79,7 +79,7 @@ class Node(object):
 	
 	def setHeader(self, bool):
 		"""Set the node as being the root (True) or not (False)"""
-		# DEBUG - probably need some safety checking here
+		assert bool in (True, False)
 		self.header = bool
 
 	

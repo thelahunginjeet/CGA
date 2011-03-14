@@ -34,14 +34,14 @@ class CGAGenerator(object):
 				-The new terminal nodes are not filled in.
 				-Should not cause a GC problem; tNode has no children."""
 		identity = tNode.getIdentity()
-		if identity == 0:
-			tNode.parent.setChildren(newNode, None)
-			tNode.parent = None
-			del tNode
-		elif identity == 1:
+		if identity:  
+			# right node
 			tNode.parent.setChildren(None, newNode)
-			tNode.parent = None
-			del tNode
+		else:  
+			# left node
+			tNode.parent.setChildren(newNode, None)
+		tNode.parent = None
+		tNode.clean()
 		
 	@staticmethod
 	def _delete(fNode):
@@ -52,23 +52,17 @@ class CGAGenerator(object):
 					entire tree.
 				-Might cause a GC problem; None-ing fNode's .parent variable is an attempt to 
 					remove external references and hope GC does its job."""
-		header = fNode.getHeader()
-		if header == True:
+		if fNode.getHeader():
 			pass
 		else:
-			identity = fNode.getIdentity()
-			if identity == 0:
-				fNode.parent.setChildren(DataNode(), None)
-				fNode.parent = None
-				fNode.setChildren(None,None)
-				del fNode
-			elif identity == 1:
+			if fNode.getIdentity():
+				# right node
 				fNode.parent.setChildren(None, DataNode())
-				fNode.parent = None
-				fNode.setChildren(None,None)
-				del fNode
 			else:
-				raise TypeError, "The identity of your node (%s) isn't equal to 0 or 1; try again . . ." % (identity)
+				# left node
+				fNode.parent.setChildren(DataNode(), None)
+			fNode.parent = None
+			fNode.clean()
 	
 	@staticmethod
 	def _replace(tree, oldNode, newNode):
@@ -81,35 +75,25 @@ class CGAGenerator(object):
 					the tree into this function as well.
 				-GC should be OK here;  parents and children for the oldNode are set to None before
 					refcount decrement, so no external references should linger."""
-		tree()
 		if type(oldNode) != type(newNode):
 			raise TypeError, "You cannot do in-position replacement with a node of a different type."
-		header = oldNode.getHeader()
-		identity = oldNode.getIdentity()
-		nodeChildren = oldNode.getChildren()
-		if header == True:
+		childLeft, childRight = oldNode.getChildren()
+		if oldNode.getHeader():
 			newNode.setHeader(True)
-			newNode.setIdentity(identity)
-			newNode.setChildren(nodeChildren[0],nodeChildren[1])
+			newNode.setIdentity(oldNode.getIdentity())
+			newNode.setChildren(childLeft, childRight)
 			tree.root = newNode
-			oldNode.setChildren(None,None)
-			del oldNode
 		else:
-			if identity == 0:
-				oldNode.parent.setChildren(newNode,None)
-				newNode.setChildren(nodeChildren[0],nodeChildren[1])
-				oldNode.parent = None
-				oldNode.setChildren(None,None)
-				del oldNode
-			elif identity == 1:
+			if oldNode.getIdentity():
 				oldNode.parent.setChildren(None, newNode)
-				newNode.setChildren(nodeChildren[0],nodeChildren[1])
-				oldNode.parent = None
-				oldNode.setChildren(None,None)
-				del oldNode
 			else:
-				raise TypeError, "the identity of your node (%s) isn't equal to 0 or 1; try again . . ."%(identity)
-			
+				oldNode.parent.setChildren(newNode, None)
+			newNode.setChildren(childLeft, childRight)
+			oldNode.parent = None
+		oldNode.setChildren(None, None)
+		# DANGEROUS BECAUSE OF SHARED REFERENCES IN SUBTREE
+		# oldNode.clean()
+							
 	@staticmethod
 	def _swap(nodeOne,nodeTwo):
 		"""Swaps two subtrees.  The nodes may be any node except the root; swapping roots (or one root)
@@ -118,6 +102,9 @@ class CGAGenerator(object):
 				-If either nodeOne or nodeTwo is the root, the function just returns with no crossover.
 				-GC should be fine in this case; we don't actually want to delete anything, just
 					update the references."""
+		# START EDITING HERE:
+		#	- NEED TO THINK ABOUT CLEAN() METHODS
+		#	- NEED TO THINK ABOUT COPY() METHOD FOR CLEANING A SUBTREE
 		oneHeader = nodeOne.getHeader()
 		twoHeader = nodeTwo.getHeader()
 		if oneHeader == True or twoHeader == True:
@@ -315,7 +302,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		self.testTree()
 		print self.testTree
 		newNode = BinaryNode(self.binaryFunctions['*'])
-		CGAGenerator._replace(self.testTree,self.node1,newNode)
+		CGAGenerator._replace(self.testTree, self.node1, newNode)
 		print 'Tree after replacement: '
 		self.testTree.update()
 		self.testTree()

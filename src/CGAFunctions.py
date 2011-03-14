@@ -5,6 +5,7 @@ import numpy as MATH
 from numpy.random import randint, uniform
 from CGAPreprocessing import Utilities
 
+
 class Data(object):
 	"""Simple container for keeping information about a data source"""
 	def __init__(self, string, latex, data):
@@ -24,7 +25,6 @@ class Function(object):
 
 class Functions(dict):
 	"""General function class to subclass"""
-		
 	def returnRandom(self):
 		return self[self.keys()[randint(0,len(self))]]
 		

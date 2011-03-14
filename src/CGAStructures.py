@@ -1,11 +1,5 @@
 #!/usr/bin/env python
 
-# NOTES :
-#	- garbage collection might be a problem with the trees; I'm not sure there's any good way around
-#	  	this (after reading a bit about del and such on forums).  Our best bet is probably shown in 
-#	  	CGAGenerator, where we can cut external references by setting the parent of a subtree we 
-#		want to delete to None.  This way we still have circular references, but they are contained.
-
 import unittest
 import CGAFunctions
 from networkx import Graph, draw
@@ -19,12 +13,6 @@ class Node(object):
 		self.latex, self.string, self.function = function.latex, function.string, function.function
 		self.header = False
 		self.nxstring = function.string+'_'+id(self).__repr__()
-		
-#		self.latex = function.latex
-#		self.string = function.string
-#		self.function = function.function
-		# a way to deal with whether I'm the root or not; all nodes are not root by default
-#		self.header = False
 		
 	def __repr__(self):
 		"""String representation of a node used for debugging."""
@@ -44,6 +32,10 @@ class Node(object):
 		
 	def _evalEdges(self):
 		return []
+	
+	def clean(self):
+		self = None
+		return self
 		
 	def getChildren(self):
 		"""Return the left and right children of a node"""
@@ -88,6 +80,7 @@ class DataNode(Node):
 	
 	def replaceData(self, realData):
 		"""Replaces the default data with real bonafide data"""
+		assert type(readData) is CGAFunctions.Data
 		self.function = realData
 
 	
@@ -140,16 +133,22 @@ class UnaryNode(Node):
 		self.left = DataNode()
 		self.left.parent = self
 		self.left.setIdentity(0)
-		
+	
+	def clean(self):
+		self.left = self.left.clean()
+		return self.left
+	
 	def _evalNodes(self):
 		return [self] + self.left._evalNodes()
 		
 	def _evalFunction(self):
 		leval = self.left._evalFunction()
-		if leval is None:
-			return None
-		else:
-			return self.function(leval)
+		assert leval is not None
+		return self.function(leval)
+#		if leval is None:
+#			return None
+#		else:
+#			return self.function(leval)
 		
 	def _evalString(self):
 		return self.string % (self.left._evalString())
@@ -186,16 +185,23 @@ class BinaryNode(Node):
 		self.right.parent = self
 		self.right.setIdentity(1)
 		
+	def clean(self):
+		self.left = self.left.clean()
+		self.right = self.right.clean()
+		return self.right  # just need to return None, so either left or right
+		
 	def _evalNodes(self):
 		return [self] + self.left._evalNodes() + self.right._evalNodes()
 
 	def _evalFunction(self):
 		leval = self.left._evalFunction()
 		reval = self.right._evalFunction()
-		if leval is None or reval is None:
-			return None
-		else:
-			return self.function(leval, reval)
+		assert leval is not None and reval is not None
+		return self.function(leval, reval)
+#		if leval is None or reval is None:
+#			return None
+#		else:
+#			return self.function(leval, reval)
 
 	def _evalString(self):
 		return self.string % (self.left._evalString(), self.right._evalString())
@@ -252,10 +258,11 @@ class AlgorithmTree(object):
 	
 	def update(self):
 		"""General function to update any properties"""
-		self.evaluateNodes()
+		self.evaluateNodes()			
 	
+	# might need to simply have getters to return things like the terminii so that update isn't always called
 	def evaluateNodes(self):
-		"""Recurse the tree and keep track of all nodes"""
+		"""Recurse the tree and return a list of all of the nodes in the tree"""
 		self.nodes = self.root._evalNodes()
 		self.termini = [x for x in self.nodes if isinstance(x, DataNode)]
 		
@@ -338,6 +345,30 @@ class AlgorithmTreeTests(unittest.TestCase):
 		tree()
 		draw(tree.graph)
 		pylab.show()
+		
+	def testClean(self):
+		print "\n----- testing delete on graph -----"
+		root = BinaryNode(self.binaryFunctions['/'])
+		node1 = UnaryNode(self.unaryFunctions['exp'])
+		node2 = UnaryNode(self.unaryFunctions['log'])
+		node3 = UnaryNode(self.unaryFunctions['sin'])
+		node4 = UnaryNode(self.unaryFunctions['log'])
+		constant1 = DataNode(self.data['pi'])
+		value = CGAFunctions.uniform()
+		constant2 = DataNode(CGAFunctions.Data(str(value),str(value),value))
+		tree = AlgorithmTree(root)
+		root.setChildren(node1, node2)
+		node1.setChildren(node3)
+		node3.setChildren(node4)
+		node2.setChildren(constant1)
+		node4.setChildren(constant2)
+		tree()
+		root.setChildren(DataNode(), None)
+		node1.clean()
+		tree()
+		draw(tree.graph)
+		pylab.show()
+
 		
 if __name__ == '__main__':
 	unittest.main()

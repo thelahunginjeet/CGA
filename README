@@ -4,14 +4,13 @@ branch	: master
 purpose : everything that works goes here
 
 RECENT:
-	-added a development branch based on the git model so we can stay off master
-	-removed self.cgag from CGASimulation because it is a utility class with static methods
-	-	you don't need to initialize it
+	-added a .clean() method that recursively sets nodes to None
+	-might need a .copy() method that recursively copies because clean() still has links
+	-	ultimatedly, you should copy() a subtree, then clean() the original if need be
 
 TODO:
+	-need to figure be more vigilant about reference/value passing so that trees aren't begin changed in parallel
 	-need random [0,1] numbers in there somehow
-	-remove deprecated mutation operators
-	-replace inefficient call to _fillWithRandomData() with a targeted replace of EmptyNode to DataNode
 	-would clean things up to make population a class (CGAPopulation); that would allow implementation
 		of methods to collect data (max fitness, mean, etc.)
 

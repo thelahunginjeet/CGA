@@ -3,6 +3,11 @@ README file for CGA project.
 branch	: master
 purpose : everything that works goes here
 
+RECENT:
+	-added a development branch based on the git model so we can stay off master
+	-removed self.cgag from CGASimulation because it is a utility class with static methods
+	-	you don't need to initialize it
+
 TODO:
 	-need random [0,1] numbers in there somehow
 	-remove deprecated mutation operators
@@ -10,7 +15,10 @@ TODO:
 	-would clean things up to make population a class (CGAPopulation); that would allow implementation
 		of methods to collect data (max fitness, mean, etc.)
 
-QUESTIONS/ISSUES:
+PROBLEMS:
+	-function dicts need to initialize new Data/Function objects instead of referencing them 
+
+QUESTIONS:
 	-should we formally replace nan/inf/-inf with zero before an advance step?
 	-simulation has a lot of parameters; better way to handle them?
 	-are there redundant calls to tree.update() in the mutation operators?

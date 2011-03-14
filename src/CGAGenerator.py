@@ -4,15 +4,12 @@
 #	- check the root being selected in all of the function calls
 #	- remove deprecated versions of mutation operators
 
-# NOTES :
-#   - as of 1/4/11, all "atomic" and GA-type functions pass basic tests, behaving as expected
-
 import unittest
 from numpy.random import uniform
 from numpy.random import randint
 import random, copy
 from CGAFunctions import BinaryFunctions, UnaryFunctions, ScalarizingFunctions, ImmutableData
-from CGAStructures import EmptyNode, DataNode, BinaryNode, UnaryNode, ScalarNode, AlgorithmTree
+from CGAStructures import DataNode, BinaryNode, UnaryNode, ScalarNode, AlgorithmTree
 
 
 class CGAGenerator(object):
@@ -25,10 +22,10 @@ class CGAGenerator(object):
 	These base methods are used to make more GA-type operations, which are designed to ensure
 	return of an evaluateable tree (the atomic methods do not guarantee this)."""
 	def __init__(self):
-		pass
+		raise TypeError, "this is a utility class with static methods; don't initialize me"
 	
 	@staticmethod
-	def _extend(tNode,newNode):
+	def _extend(tNode, newNode):
 		"""Grows a tree by replacing a terminal node (any one in tree.termini) with the 
 		node newNode.  
 			Properties:
@@ -36,18 +33,15 @@ class CGAGenerator(object):
 				-newNode can be a dataNode, in which case it will be a terminal leaf (replacing an empty node)
 				-The new terminal nodes are not filled in.
 				-Should not cause a GC problem; tNode has no children."""
-		# DEBUG - maybe want to check that terminalNode is either EmptyNode or DataNode, and pass if not?
 		identity = tNode.getIdentity()
 		if identity == 0:
-			tNode.parent.setChildren(newNode,None)
+			tNode.parent.setChildren(newNode, None)
 			tNode.parent = None
 			del tNode
 		elif identity == 1:
-			tNode.parent.setChildren(None,newNode)
+			tNode.parent.setChildren(None, newNode)
 			tNode.parent = None
 			del tNode
-		else:
-			raise TypeError, "The identity of your node (%s) isn't equal to 0 or 1; try again . . ." % (identity)
 		
 	@staticmethod
 	def _delete(fNode):
@@ -64,12 +58,12 @@ class CGAGenerator(object):
 		else:
 			identity = fNode.getIdentity()
 			if identity == 0:
-				fNode.parent.setChildren(EmptyNode(),None)
+				fNode.parent.setChildren(DataNode(), None)
 				fNode.parent = None
 				fNode.setChildren(None,None)
 				del fNode
 			elif identity == 1:
-				fNode.parent.setChildren(None,EmptyNode())
+				fNode.parent.setChildren(None, DataNode())
 				fNode.parent = None
 				fNode.setChildren(None,None)
 				del fNode
@@ -77,7 +71,7 @@ class CGAGenerator(object):
 				raise TypeError, "The identity of your node (%s) isn't equal to 0 or 1; try again . . ." % (identity)
 	
 	@staticmethod
-	def _replace(tree,oldNode,newNode):
+	def _replace(tree, oldNode, newNode):
 		"""Replaces one node with another of the same type, in situ.  So Binary->Binary and Unary->Unary, and
 		Data->Data.
 			Properties:
@@ -87,6 +81,7 @@ class CGAGenerator(object):
 					the tree into this function as well.
 				-GC should be OK here;  parents and children for the oldNode are set to None before
 					refcount decrement, so no external references should linger."""
+		tree()
 		if type(oldNode) != type(newNode):
 			raise TypeError, "You cannot do in-position replacement with a node of a different type."
 		header = oldNode.getHeader()
@@ -147,15 +142,12 @@ class CGAGenerator(object):
 			nodeTwo.parent.setChildren(None, tmpOne)
 		else:
 			raise TypeError, "You have some node identity issues (%s, %s); try again . . ."%(oneIdentity, twoIdentity)		
-				
-							
+											
 	@staticmethod
 	def _createRandomFunctionalNode():	
 		if uniform() < 0.5:
-			node = BinaryNode(BinaryFunctions().returnRandom())
-		else:
-			node = UnaryNode(UnaryFunctions().returnRandom())
-		return node
+			return BinaryNode(BinaryFunctions().returnRandom())
+		return UnaryNode(UnaryFunctions().returnRandom())
 	
 	@staticmethod
 	def _createRandomScalarNode():
@@ -164,17 +156,7 @@ class CGAGenerator(object):
 	@staticmethod
 	def _createRandomDataNode():
 		return DataNode(ImmutableData().returnRandom())
-	
-	@staticmethod
-	def _fillTreeWithRandomData(tree):
-		"""Replaces all terminal data nodes with stored, random data nodes."""
-		tree.update()
-		for node in tree.termini:
-			if type(node) == EmptyNode:
-				dNode = CGAGenerator._createRandomDataNode()
-				CGAGenerator._extend(node,dNode)
-		tree.update()
-			
+				
 	@staticmethod
 	def generate(number=10):
 		"""Function to generate and return a random tree with fixed number of internal nodes added.  The root has to 
@@ -187,33 +169,32 @@ class CGAGenerator(object):
 			fNode = CGAGenerator._createRandomFunctionalNode()
 			CGAGenerator._extend(tNode,fNode)
 			number -= 1
-		CGAGenerator._fillTreeWithRandomData(tree)
 		return tree
 
-	@staticmethod
-	def expgenerate(p):
-		"""Generates and returns a random tree; nonterminal nodes are extended with probability p and 
-		terminated with probability 1-p."""
-		root = CGAGenerator._createRandomScalarNode()
-		tree = AlgorithmTree(root)
-		ntries = 1
-		while True:
-			tree.update()
-			freenodes = [x for x in tree.termini if type(x) is EmptyNode]
-			if len(freenodes) == 0:
-				break # all nodes are terminal
-			tNode = random.choice(freenodes)
-			r = uniform()
-			if r < p:
-				# extend
-				fNode = CGAGenerator._createRandomFunctionalNode()
-				CGAGenerator._extend(tNode,fNode)
-			else:
-				# terminate at a data node
-				dNode = CGAGenerator._createRandomDataNode()
-				CGAGenerator._extend(tNode,dNode)
-			ntries += 1
-		return tree
+#	@staticmethod
+#	def expgenerate(p):
+#		"""Generates and returns a random tree; nonterminal nodes are extended with probability p and 
+#		terminated with probability 1-p."""
+#		root = CGAGenerator._createRandomScalarNode()
+#		tree = AlgorithmTree(root)
+#		ntries = 1
+#		while True:
+#			tree.update()
+#			freenodes = [x for x in tree.termini if type(x) is DataNode]
+#			if len(freenodes) == 0:
+#				break # all nodes are terminal
+#			tNode = random.choice(freenodes)
+#			r = uniform()
+#			if r < p:
+#				# extend
+#				fNode = CGAGenerator._createRandomFunctionalNode()
+#				CGAGenerator._extend(tNode, fNode)
+#			else:
+#				# terminate at a data node
+#				dNode = CGAGenerator._createRandomDataNode()
+#				CGAGenerator._extend(tNode, dNode)
+#			ntries += 1
+#		return tree
 
 	@staticmethod
 	def point_mutate(tree,node):
@@ -223,15 +204,15 @@ class CGAGenerator(object):
 			newNode = UnaryNode(UnaryFunctions().returnRandom())
 		elif isinstance(node, DataNode):
 			newNode = DataNode(ImmutableData().returnRandom())
-		elif isinstance(node, EmptyNode):
-			newNode = EmptyNode()
+#		elif isinstance(node, EmptyNode):
+#			newNode = EmptyNode()
 		elif isinstance(node, BinaryNode):
 			newNode = BinaryNode(BinaryFunctions().returnRandom())
 		elif isinstance(node, ScalarNode):
 			newNode = ScalarNode(ScalarizingFunctions().returnRandom())
 		else:
 			raise TypeError, "there seems to be a mystery node; try again . . ."
-		CGAGenerator._replace(tree,node,newNode)
+		CGAGenerator._replace(tree, node, newNode)
 		tree.update()
 		
 	@staticmethod
@@ -240,11 +221,11 @@ class CGAGenerator(object):
 		data node, so the tree remains evaluateable.  If the node chosen is a data node or the root,
 		nothing will be done - the tree will be unmodified."""
 		tree.update()
-		if type(node) is DataNode or type(node) is EmptyNode:
+		if type(node) is DataNode:
 			pass
 		else:
 			CGAGenerator._delete(node)
-			CGAGenerator._fillTreeWithRandomData(tree)
+#			CGAGenerator._fillTreeWithRandomData(tree)
 		tree.update()
 		
 	@staticmethod
@@ -270,93 +251,14 @@ class CGAGenerator(object):
 		treeOne.update()
 		treeTwo.update()
 		# check for roots; don't do anything if one is the root
-		if nodeOne.getHeader() == True or nodeTwo.getHeader() == True:
+		# ERROR : getHeader() doesn't necessarily return a boolean
+		if nodeOne.getHeader() or nodeTwo.getHeader():
 			pass
 		else:	
 			CGAGenerator._swap(nodeOne, nodeTwo)
 			treeOne.update()
 			treeTwo.update()
 
-	'''
-	DEPRECATED METHOD
-	@staticmethod
-	def mutate(tree):
-		"""Takes an input tree and does an in-place switch of a random node.
-		DEPRECATED."""
-		tree.update()		
-		treeNode = random.choice(tree.nodes)
-		if isinstance(treeNode, UnaryNode):
-			newNode = UnaryNode(UnaryFunctions().returnRandom())
-		elif isinstance(treeNode, DataNode):
-			newNode = DataNode(ImmutableData().returnRandom())
-		elif isinstance(treeNode, EmptyNode):
-			newNode = EmptyNode()
-		elif isinstance(treeNode, BinaryNode):
-			newNode = BinaryNode(BinaryFunctions().returnRandom())
-		elif isinstance(treeNode, ScalarNode):
-			newNode = ScalarNode(ScalarizingFunctions().returnRandom())
-		else:
-			raise TypeError, "there seems to be a mystery node; try again . . ."
-		CGAGenerator._replace(tree,treeNode,newNode)
-		tree.update()
-	'''	
-	'''
-	DEPRECATED METHOD	
-	@staticmethod
-	def grow(tree):
-		"""Takes an input tree and extends it by changing a random terminal data node into a new Unary or 
-		Binary node.  New random data nodes are added as terminal leaves."""
-		tree.update()
-		tNode = random.choice(tree.termini)
-		fNode = CGAGenerator._createRandomFunctionalNode()
-		CGAGenerator._extend(tNode, fNode)
-		dNode1 = CGAGenerator._createRandomDataNode()
-		dNode2 = CGAGenerator._createRandomDataNode()
-		fNode.setChildren(dNode1,dNode2)
-		tree.update()
-		
-	
-	@staticmethod
-	def crossover(treeOne, treeTwo):
-		"""Takes two input trees and swaps a random non-root node in treeOne with a random 
-		non-root node in treeTwo."""
-		treeOne.update()
-		treeTwo.update()
-		while True:
-			nodeOne = random.choice(treeOne.nodes)
-			if nodeOne.getHeader() == False:
-				break
-		while True:
-			nodeTwo = random.choice(treeTwo.nodes)
-			if nodeTwo.getHeader() == False:
-				break
-		CGAGenerator._swap(nodeOne, nodeTwo)
-		treeOne.update()
-		treeTwo.update()
-		
-	'''
-	'''
-	DEPRECATED METHOD
-	@staticmethod
-	def prune(tree):
-		"""Accepts one input tree and deletes a randomly chosen subtree; the node chosen is replaced with a 
-		terminal data node, so the tree remains evaluateable.  If the node chosen is a data node or the root,
-		nothing will be done - the tree will be unmodified."""
-		tree.update()
-		ranNode = random.choice(tree.nodes)
-		print ranNode
-		if type(ranNode) is DataNode or type(ranNode) is EmptyNode:
-			pass
-		else:
-			CGAGenerator._delete(ranNode)
-			CGAGenerator._fillTreeWithRandomData(tree)
-		tree.update()
-	'''
-
-	@staticmethod
-	def duplicate():
-		pass
-		
 
 class CGAGeneratorTests(unittest.TestCase):
 	def setUp(self):
@@ -464,11 +366,11 @@ class CGAGeneratorTests(unittest.TestCase):
 		tree()		
 		print tree
 	
-	def testExpGenerate(self):
-		print "\n\n----- testing expgenerate(tree) -----"
-		tree = CGAGenerator.expgenerate(0.6)
-		tree()
-		print tree
+#	def testExpGenerate(self):
+#		print "\n\n----- testing expgenerate(tree) -----"
+#		tree = CGAGenerator.expgenerate(0.6)
+#		tree()
+#		print tree
 		
 	def testPointMutate(self):
 		print "\n\n----- testing point_mutate(tree,node) -----"
@@ -495,20 +397,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		self.testTree()
 		print self.testTree
 		
-	""" DEPRECATED TEST
-	def testMutate(self):
-		print "\n\n----- testing mutate(tree) -----"
-		print "Tree before mutation: "
-		self.testTree.update()
-		self.testTree()
-		print self.testTree
-		CGAGenerator.mutate(self.testTree)
-		print "Tree after mutation: "
-		self.testTree.update()
-		self.testTree()
-		print self.testTree
-	"""
-	
+			
 	def testGrow(self):
 		print "\n\n----- testing grow(tree,tNode) -----"
 		print "Tree before extension: "
@@ -521,21 +410,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		self.testTree()
 		print self.testTree
 	
-	
-	""" DEPRECATED TEST
-	def testGrow(self):
-		print "\n\n----- testing grow(tree) -----"
-		print "Tree before extension: "
-		self.testTree.update()
-		self.testTree()
-		print self.testTree
-		CGAGenerator.grow(self.testTree)
-		print "Tree after extension: "
-		self.testTree.update()
-		self.testTree()
-		print self.testTree
-	"""
-	
+		
 	def testCrossover(self):
 		print "\n\n----- testing crossover(tree1,node1,tree2,node2) -----"
 		# need another tree to crossover with the test tree
@@ -562,34 +437,6 @@ class CGAGeneratorTests(unittest.TestCase):
 		tree()
 		print tree
 		
-	"""
-	DEPRECATED TEST
-	def testCrossover(self):
-		print "\n\n----- testing crossover(tree1,tree2) -----"
-		# need another tree to crossover with the test tree
-		root = UnaryNode(self.unaryFunctions['log'])
-		node1 = BinaryNode(self.binaryFunctions['*'])
-		constant1 = DataNode(self.data['1/2'])
-		constant2 = DataNode(self.data['e'])
-		tree = AlgorithmTree(root)
-		root.setChildren(node1)
-		node1.setChildren(constant1,constant2)
-		print 'Trees before the crossover: '
-		self.testTree.update()
-		self.testTree()
-		print self.testTree
-		tree.update()
-		tree()
-		print tree
-		CGAGenerator.crossover(self.testTree,tree)
-		print 'Trees after the crossover: '
-		self.testTree.update()
-		self.testTree()
-		print self.testTree
-		tree.update()
-		tree()
-		print tree
-	"""
 	
 	def testPrune(self):
 		print "\n\n----- testing prune(tree,node) -----"
@@ -618,34 +465,6 @@ class CGAGeneratorTests(unittest.TestCase):
 		tree()
 		print tree
 	
-	"""DEPRECATED TEST
-	def testPrune(self):
-		print "\n\n----- testing prune(tree) -----"
-		# need to make something that isn't just roots and data nodes so
-		# 	we are likely to pick a truncateable node
-		root = UnaryNode(self.unaryFunctions['log'])
-		node1 = UnaryNode(self.unaryFunctions['exp'])
-		node2 = UnaryNode(self.unaryFunctions['tanh'])
-		node3 = UnaryNode(self.unaryFunctions['sin'])
-		node4 = BinaryNode(self.binaryFunctions['*'])
-		constant1 = DataNode(self.data['1/2'])
-		constant2 = DataNode(self.data['e'])
-		tree = AlgorithmTree(root)
-		root.setChildren(node1)
-		node1.setChildren(node2)
-		node2.setChildren(node3)
-		node3.setChildren(node4)
-		node4.setChildren(constant1,constant2)
-		print "Tree before pruning: "
-		tree.update()
-		tree()
-		print tree
-		CGAGenerator.prune(tree)
-		print "Tree after pruning: "
-		tree.update()
-		tree()
-		print tree
-	"""	
 		
 if __name__ == '__main__':
 	unittest.main()

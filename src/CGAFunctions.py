@@ -24,8 +24,6 @@ class Function(object):
 
 class Functions(dict):
 	"""General function class to subclass"""
-	def __init__(self):
-		pass
 		
 	def returnRandom(self):
 		return self[self.keys()[randint(0,len(self))]]
@@ -38,8 +36,6 @@ class ImmutableData(Functions):
 	with real values (just dummies).  An adaptor (CGASimulation) has to plug in real values from a 
 	database and compute the N(N-1)/2 values needed to determine accuracy."""	
 	def __init__(self):
-		super(ImmutableData, self).__init__()
-		# dummy data with realistic properties
 		self['e'] = Data("e", r'e', MATH.e)
 		self['pi'] = Data("pi", r'\pi', MATH.pi)
 		self['1'] = Data("1", r'1', 1.0)
@@ -58,9 +54,9 @@ class ScalarizingFunctions(Functions):
 	scalarizing functions are written to work on scalars as well (just returning the scalar), in order
 	to run simple tests on non-matrix input data. """
 	def __init__(self):	
-		super(ScalarizingFunctions, self).__init__()
 		self['tr'] = Function("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', self.nantrace)
 		self['sum_ij'] = Function("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', self.dsum)
+
 		
 	def nantrace(self,x):
 		# nan compatible trace
@@ -69,6 +65,7 @@ class ScalarizingFunctions(Functions):
 		except:
 			y = x
 		return y
+
 	
 	def dsum(self,x):
 		# nan compatible sub of the elements of a matrix
@@ -83,7 +80,6 @@ class UnaryFunctions(Functions):
 	"""Simple class for unary functions; these all operate array-wise, returning an array if used on
 	an array."""	
 	def __init__(self):
-		super(UnaryFunctions, self).__init__()
 		self['sin'] = Function("sin(%s)", r'\sin\left(%s\right)', MATH.sin)
 		self['exp'] = Function("exp(%s)", r'\exp\left(%s\right)', MATH.exp)
 		self['log'] = Function("log(%s)", r'\log\left(%s\right)', MATH.log)
@@ -94,7 +90,6 @@ class UnaryFunctions(Functions):
 class BinaryFunctions(Functions):
 	"""Simple class for binary functions; these also operate element-wise on arrays."""
 	def __init__(self):
-		super(BinaryFunctions, self).__init__()
 		self['+'] = Function("(%s+%s)", r'\left(%s+%s\right)', MATH.add)
 		self['-'] = Function("(%s-%s)", r'\left(%s-%s\right)', MATH.subtract)
 		self['*'] = Function("(%s*%s)", r'%s\dot%s', MATH.multiply)

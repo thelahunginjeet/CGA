@@ -6,7 +6,8 @@ import numpy as MATH
 import random
 from CGAPreprocessing import Utilities
 from CGAStructures import AlgorithmTree
-import CGAGenerator
+from CGAGenerator import CGAGenerator
+#import CGAGenerator
 from CGALogging import Subject,Observer,DataLogger
 
 # TODO : 
@@ -22,10 +23,12 @@ class CGAChromosome(object):
     def __init__(self,tree=None,fitness=MATH.nan):
         self.tree = tree
         self.fitness = fitness
-    
-    def __cmp__(self,other):
-        if hasattr(other,'fitness'):
-            return cmp(self.fitness,other.fitness)
+
+    # compare must return -1, 0, 1.  this will lead to a problems because it will return None in some cases
+
+#    def __cmp__(self,other):
+#        if hasattr(other,'fitness'):
+#            return cmp(self.fitness,other.fitness)
 
 
 class CGASimulation(Subject):
@@ -48,7 +51,6 @@ class CGASimulation(Subject):
         self.distances = Utilities.calculateAtomicDistances(pdbFile)
         self.proteinDiameter = mean(self.distances.values()) - min(self.distances.values())
         self.proteinMinimum = min(self.distances.values())
-        self.cgag = CGAGenerator.CGAGenerator()
         # will be a list of CGAChromosome objects
         self.population = []
         # mutation probabilities - some are per node, some are global (per tree)
@@ -71,6 +73,7 @@ class CGASimulation(Subject):
             for j in range(i+1,len(self.indices)):
                 indxj = self.indices[j]
                 self.jointFrequencies[(indxi,indxj)] = MATH.asarray(self.jointFrequencies[(indxi,indxj)])
+    
         
     def populate(self,treetype='exponential',p=0.65,treeSize=10):
         """Populate the forest of function trees.  You can choose to either use probabilistic tree
@@ -84,16 +87,17 @@ class CGASimulation(Subject):
         """
         if treetype == 'exponential':
             for i in range(self.forestSize):
-                tree = self.cgag.expgenerate(p)
+                tree = CGAGenerator.expgenerate(p)
                 fitness = self.evaluate_fitness(tree)
                 self.population.append(CGAChromosome(tree,fitness))
         elif treetype == 'fixed':
             for i in range(self.forestSize):
-                tree = self.cgag.generate(treeSize)
+                tree = CGAGenerator.generate(treeSize)
                 fitness = self.evaluate_fitness(tree)
                 self.population.append(CGAChromosome(tree,fitness))
         else:
             raise TypeError, 'Unknown tree type : %s' % treetype
+
 
     def advance(self):
         """Step forward one step in time recording.  Before advancing, """
@@ -111,6 +115,7 @@ class CGASimulation(Subject):
         maxFit = MATH.nanmax([k.fitness for k in self.population])
         wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
         meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
+        print "advanced : ", self.time
         self.notify(time=self.time,minSize=minN,maxSize=maxN,maxFit=maxFit,wellFormed=wellFormed,meanFit=meanFit)
         self.time += 1
         
@@ -130,33 +135,33 @@ class CGASimulation(Subject):
             # pick the nodes (roots won't crossover)
             nodeOne = random.choice(offOne.tree.nodes)
             nodeTwo = random.choice(offTwo.tree.nodes)
-            self.cgag.single_crossover(offOne.tree,nodeOne,offTwo.tree,nodeTwo)
+            CGAGenerator.single_crossover(offOne.tree, nodeOne, offTwo.tree, nodeTwo)
         # POINT MUTATION
         # now check for point mutations, in both trees
         for n in offOne.tree.nodes:
             if MATH.random.rand() < self.pM:
-                self.cgag.point_mutate(offOne.tree,n)
+                CGAGenerator.point_mutate(offOne.tree, n)
                 fitEval[0] = True
         for n in offTwo.tree.nodes:
             if MATH.random.rand() < self.pM:
-                self.cgag.point_mutate(offTwo.tree,n)
+                CGAGenerator.point_mutate(offTwo.tree, n)
                 fitEval[1] = True
         # GROWTH/EXTENSION
         for t in offOne.tree.termini:
             if MATH.random.rand() < self.pG:
-                self.cgag.grow(offOne.tree,t)
+                CGAGenerator.grow(offOne.tree, t)
                 fitEval[0] = True
         for t in offTwo.tree.termini:
             if MATH.random.rand() < self.pG:
-                self.cgag.grow(offTwo.tree,t)
+                CGAGenerator.grow(offTwo.tree, t)
                 fitEval[1] = True
         # PRUNING
         for n in offOne.tree.nodes:
             if MATH.random.rand() < self.pP:
-                self.cgag.prune(offOne.tree,n)
+                CGAGenerator.prune(offOne.tree, n)
                 fitEval[0] = True
             if MATH.random.rand() < self.pP:
-                self.cgag.prune(offOne.tree,n)
+                CGAGenerator.prune(offOne.tree, n)
                 fitEval[1] = True
         # compute fitnesses, if they have changed
         if fitEval[0]:
@@ -212,25 +217,25 @@ class CGASimulation(Subject):
         return fitness
     
 
-    def evaluate_fitness_iter(self,tree):
-        """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
-        defined as:
-            fitness = 1 + accuracy
-        Accuracy is computed in a different function, in order to allow easy swapping in of
-        different definitions."""
-        weights = {}
-        pi = [x for x in tree.termini if x.string == 'p_i']
-        pj = [x for x in tree.termini if x.string == 'p_j']
-        pij = [x for x in tree.termini if x.string == 'p_ij']
-        for i in self.indices:
-            for j in [x for x in self.indices if x > i]:
-                map(lambda x : x.replaceData(self.singleFrequencies[i]), pi)
-                map(lambda x : x.replaceData(self.singleFrequencies[j]), pj)
-                map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
-                tree()
-                weights[(i, j)] = tree.function
-        fitness = 1 + self.calculate_accuracy(weights)
-        return fitness
+#    def evaluate_fitness_iter(self,tree):
+#        """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
+#        defined as:
+#            fitness = 1 + accuracy
+#        Accuracy is computed in a different function, in order to allow easy swapping in of
+#        different definitions."""
+#        weights = {}
+#        pi = [x for x in tree.termini if x.string == 'p_i']
+#        pj = [x for x in tree.termini if x.string == 'p_j']
+#        pij = [x for x in tree.termini if x.string == 'p_ij']
+#        for i in self.indices:
+#            for j in [x for x in self.indices if x > i]:
+#                map(lambda x : x.replaceData(self.singleFrequencies[i]), pi)
+#                map(lambda x : x.replaceData(self.singleFrequencies[j]), pj)
+#                map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
+#                tree()
+#                weights[(i, j)] = tree.function
+#        fitness = 1 + self.calculate_accuracy(weights)
+#        return fitness
                 
 
     def calculate_accuracy(self,weights):

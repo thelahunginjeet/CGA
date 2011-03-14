@@ -1,11 +1,5 @@
 #!/usr/bin/env python
 
-# TODO : 
-#	- use the __call__ method for memoization for all of the evaluation method calls
-#	- use abstract base classes so that methods are implemented across subclasses (abc module)
-#	- ZeroDivisionErrors need to be checked during the function evaluations
-
-
 # NOTES :
 #	- garbage collection might be a problem with the trees; I'm not sure there's any good way around
 #	  	this (after reading a bit about del and such on forums).  Our best bet is probably shown in 
@@ -17,28 +11,33 @@ import CGAFunctions
 from networkx import Graph, draw
 import pylab
 
+
 class Node(object):
-	"""General node object to subclass."""
-	def __init__(self,function):
-		self.latex = function.latex
-		self.string = function.string
-		self.function = function.function
-		self.nxstring = function.string+'_'+id(self).__repr__()
-		# a way to deal with whether I'm the root or not; all nodes are not root by default
+	"""General node object to subclass that acts almost as an abstract class / interface"""
+	def __init__(self, function):
+		assert type(function) in (CGAFunctions.Data, CGAFunctions.Function)
+		self.latex, self.string, self.function = function.latex, function.string, function.function
 		self.header = False
+		self.nxstring = function.string+'_'+id(self).__repr__()
+		
+#		self.latex = function.latex
+#		self.string = function.string
+#		self.function = function.function
+		# a way to deal with whether I'm the root or not; all nodes are not root by default
+#		self.header = False
 		
 	def __repr__(self):
 		"""String representation of a node used for debugging."""
 		return str(type(self)).split('.')[1].split("'")[0] + " : " + self.string
 		
 	def _evalNodes(self):
-		return [self]
+		raise Exception, "base class _evalNodes() should never be called"
 		
 	def _evalString(self):
 		return self.string
 	
 	def _evalFunction(self):
-		return None
+		return self.function
 		
 	def _evalLatex(self):
 		return self.latex
@@ -56,54 +55,41 @@ class Node(object):
 	
 	def getIdentity(self):
 		"""Return whether or not the node is a left (0) or right (1) node"""
-		if hasattr(self, 'identity'):
-			return self.identity
-		else:
-			return None
-	
-	def getHeader(self):
-		"""Return whether or not the node is the root (True) or not (False)"""
-		if hasattr(self,'header'):
-			return self.header
-		else:
-			return None
-		
+		assert hasattr(self, 'identity')
+		return self.identity
+
 	def setIdentity(self, integer):
 		"""Set the node as being a left node (0) or a right node (1)"""
-		if integer == 0:
-			self.identity = 0
-		elif integer == 1:
-			self.identity = 1
-		else:
-			raise TypeError, "you have attempted to set a Node identity as an object different than 0 or 1; think again . . ."
+		assert integer in (0, 1)
+		self.identity = integer
+		
+	def getHeader(self):
+		"""Return whether or not the node is the root (True) or not (False)"""
+		assert hasattr(self, 'header')
+		return self.header
 	
 	def setHeader(self, bool):
 		"""Set the node as being the root (True) or not (False)"""
 		assert bool in (True, False)
 		self.header = bool
-
-	
-class EmptyNode(Node):
-	"""Node containing nothing that is subclassed to Data, Unary and Binary Nodes."""
-	def __init__(self):		
-		self.latex = 'empty'
-		self.string = 'empty'
-		self.function = None
-		self.nxstring = None
 		
 
 class DataNode(Node):
 	"""General data or constant node that is terminal"""
-	def __init__(self, data):
-		super(DataNode, self).__init__(data)
-		
-	def _evalFunction(self):
-		"""Return the data object so that it can be evaluated"""
-		return self.function
+	def __init__(self, data=None):
+		assert data is None or type(data) is CGAFunctions.Data
+		if data is None:
+			super(DataNode, self).__init__(CGAFunctions.ImmutableData().returnRandom())
+		else:
+			super(DataNode, self).__init__(data)
+			
+	def _evalNodes(self):
+		return [self]
 	
 	def replaceData(self, realData):
 		"""Replaces the default data with real bonafide data"""
 		self.function = realData
+
 	
 class ScalarNode(Node):
 	"""General node for scalarizing function operations; this class is entirely redundant (unfortunately) with UnaryNode,
@@ -111,7 +97,7 @@ class ScalarNode(Node):
 	type check and only replace a ScalarNode with another one)."""
 	def __init__(self, function):
 		super(ScalarNode, self).__init__(function)
-		self.left = EmptyNode()
+		self.left = DataNode()
 		self.left.parent = self
 		self.left.setIdentity(0)
 		
@@ -151,7 +137,7 @@ class UnaryNode(Node):
 	"""General node for unary function operations"""
 	def __init__(self, function):
 		super(UnaryNode, self).__init__(function)
-		self.left = EmptyNode()
+		self.left = DataNode()
 		self.left.parent = self
 		self.left.setIdentity(0)
 		
@@ -191,10 +177,12 @@ class BinaryNode(Node):
 	"""General node for binary function operations"""
 	def __init__(self, function):
 		super(BinaryNode, self).__init__(function)
-		self.left = EmptyNode()
+		self.left = DataNode()
+#		self.left = EmptyNode()
 		self.left.parent = self
 		self.left.setIdentity(0)
-		self.right = EmptyNode()
+		self.right = DataNode()
+#		self.right = EmptyNode()
 		self.right.parent = self
 		self.right.setIdentity(1)
 		
@@ -269,7 +257,7 @@ class AlgorithmTree(object):
 	def evaluateNodes(self):
 		"""Recurse the tree and keep track of all nodes"""
 		self.nodes = self.root._evalNodes()
-		self.termini = [x for x in self.nodes if isinstance(x, DataNode) or isinstance(x, EmptyNode)]
+		self.termini = [x for x in self.nodes if isinstance(x, DataNode)]
 		
 	def evaluateFunction(self):
 		"""Recurse the tree and evaluate the function; if there are still empty nodes in

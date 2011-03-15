@@ -9,7 +9,7 @@ import pylab
 class Node(object):
 	"""General node object to subclass that acts almost as an abstract class / interface"""
 	def __init__(self, function):
-		assert type(function) in (CGAFunctions.Data, CGAFunctions.Function)
+		assert type(function) is CGAFunctions.DataFunction
 		self.latex, self.string, self.function = function.latex, function.string, function.function
 		self.header = False
 		self.nxstring = function.string + '_' + str(id(self))
@@ -69,9 +69,8 @@ class Node(object):
 class DataNode(Node):
 	"""General data or constant node that is terminal"""
 	def __init__(self, data=None):
-		assert data is None or type(data) is CGAFunctions.Data
 		if data is None:
-			super(DataNode, self).__init__(CGAFunctions.ImmutableData().returnRandom())
+			super(DataNode, self).__init__(CGAFunctions.DataMethodFactory().getData())
 		else:
 			super(DataNode, self).__init__(data)
 			
@@ -177,11 +176,9 @@ class BinaryNode(Node):
 	def __init__(self, function):
 		super(BinaryNode, self).__init__(function)
 		self.left = DataNode()
-#		self.left = EmptyNode()
 		self.left.parent = self
 		self.left.setIdentity(0)
 		self.right = DataNode()
-#		self.right = EmptyNode()
 		self.right.parent = self
 		self.right.setIdentity(1)
 		
@@ -198,10 +195,6 @@ class BinaryNode(Node):
 		reval = self.right._evalFunction()
 		assert leval is not None and reval is not None
 		return self.function(leval, reval)
-#		if leval is None or reval is None:
-#			return None
-#		else:
-#			return self.function(leval, reval)
 
 	def _evalString(self):
 		return self.string % (self.left._evalString(), self.right._evalString())
@@ -289,32 +282,30 @@ class AlgorithmTree(object):
 class AlgorithmTreeTests(unittest.TestCase):
 	"""Test suite for making AlgorithmTree operations"""	
 	def setUp(self):
-		self.binaryFunctions = CGAFunctions.BinaryFunctions()
-		self.unaryFunctions = CGAFunctions.UnaryFunctions()
-		self.data = CGAFunctions.ImmutableData()
+		self.methodFactory = CGAFunctions.DataMethodFactory()
 	
 	def testNxNodeNaming(self):
 		print "\n----- testing unique node names for nx.graph -----"
-		root = BinaryNode(self.binaryFunctions['/'])
+		root = BinaryNode(self.methodFactory.getBinary('/'))
 		print 'Root node namestring : %s' % root.nxstring
-		node1 = UnaryNode(self.unaryFunctions['log'])
+		node1 = UnaryNode(self.methodFactory.getUnary('log'))
 		print 'Node1 namestring : %s' % node1.nxstring
-		node2 = UnaryNode(self.unaryFunctions['log'])
+		node2 = UnaryNode(self.methodFactory.getUnary('log'))
 		print 'Node2 namestring : %s' % node2.nxstring
 		self.assertNotEquals(node1.nxstring,node2.nxstring)
 				
 	def testRecursion(self): 
 		print "\n----- testing tree recursion -----"
-		root = BinaryNode(self.binaryFunctions['/'])
-		node1 = UnaryNode(self.unaryFunctions['exp'])
-		node2 = UnaryNode(self.unaryFunctions['log'])
-		node3 = UnaryNode(self.unaryFunctions['sin'])
-		node4 = UnaryNode(self.unaryFunctions['log'])
+		root = BinaryNode(self.methodFactory.getBinary('/'))
+		node1 = UnaryNode(self.methodFactory.getUnary('exp'))
+		node2 = UnaryNode(self.methodFactory.getUnary('log'))
+		node3 = UnaryNode(self.methodFactory.getUnary('sin'))
+		node4 = UnaryNode(self.methodFactory.getUnary('log'))
 		# immutable data - stored
-		constant1 = DataNode(self.data['pi'])
+		constant1 = DataNode(self.methodFactory.getData('pi'))
 		# mutable data - might require one function call then the value is fixed
 		value = CGAFunctions.uniform()
-		constant2 = DataNode(CGAFunctions.Data(str(value),str(value),value))
+		constant2 = DataNode(CGAFunctions.DataFunction(str(value),str(value),value))
 		tree = AlgorithmTree(root)
 		root.setChildren(node1, node2)
 		node1.setChildren(node3)
@@ -326,16 +317,16 @@ class AlgorithmTreeTests(unittest.TestCase):
 		
 	def testGraph(self):
 		print "\n----- testing graph drawing -----"
-		root = BinaryNode(self.binaryFunctions['/'])
-		node1 = UnaryNode(self.unaryFunctions['exp'])
-		node2 = UnaryNode(self.unaryFunctions['log'])
-		node3 = UnaryNode(self.unaryFunctions['sin'])
-		node4 = UnaryNode(self.unaryFunctions['log'])
+		root = BinaryNode(self.methodFactory.getBinary('/'))
+		node1 = UnaryNode(self.methodFactory.getUnary('exp'))
+		node2 = UnaryNode(self.methodFactory.getUnary('log'))
+		node3 = UnaryNode(self.methodFactory.getUnary('sin'))
+		node4 = UnaryNode(self.methodFactory.getUnary('log'))
 		# immutable data - stored
-		constant1 = DataNode(self.data['pi'])
+		constant1 = DataNode(self.methodFactory.getData('pi'))
 		# mutable data - might require one function call then the value is fixed
 		value = CGAFunctions.uniform()
-		constant2 = DataNode(CGAFunctions.Data(str(value),str(value),value))
+		constant2 = DataNode(CGAFunctions.DataFunction(str(value),str(value),value))
 		tree = AlgorithmTree(root)
 		root.setChildren(node1, node2)
 		node1.setChildren(node3)
@@ -348,14 +339,16 @@ class AlgorithmTreeTests(unittest.TestCase):
 		
 	def testClean(self):
 		print "\n----- testing delete on graph -----"
-		root = BinaryNode(self.binaryFunctions['/'])
-		node1 = UnaryNode(self.unaryFunctions['exp'])
-		node2 = UnaryNode(self.unaryFunctions['log'])
-		node3 = UnaryNode(self.unaryFunctions['sin'])
-		node4 = UnaryNode(self.unaryFunctions['log'])
-		constant1 = DataNode(self.data['pi'])
+		root = BinaryNode(self.methodFactory.getBinary('/'))
+		node1 = UnaryNode(self.methodFactory.getUnary('exp'))
+		node2 = UnaryNode(self.methodFactory.getUnary('log'))
+		node3 = UnaryNode(self.methodFactory.getUnary('sin'))
+		node4 = UnaryNode(self.methodFactory.getUnary('log'))
+		# immutable data - stored
+		constant1 = DataNode(self.methodFactory.getData('pi'))
+		# mutable data - might require one function call then the value is fixed
 		value = CGAFunctions.uniform()
-		constant2 = DataNode(CGAFunctions.Data(str(value),str(value),value))
+		constant2 = DataNode(CGAFunctions.DataFunction(str(value),str(value),value))
 		tree = AlgorithmTree(root)
 		root.setChildren(node1, node2)
 		node1.setChildren(node3)

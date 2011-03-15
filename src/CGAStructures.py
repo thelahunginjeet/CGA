@@ -4,7 +4,6 @@
 #	- use the __call__ method for memoization for all of the evaluation method calls
 #	- use abstract base classes so that methods are implemented across subclasses (abc module)
 #	- ZeroDivisionErrors need to be checked during the function evaluations
-#   - fix evaluability of trees by forcing everything to be a numpy array.
 
 
 # NOTES :
@@ -101,6 +100,10 @@ class DataNode(Node):
 	def _evalFunction(self):
 		"""Return the data object so that it can be evaluated"""
 		return self.function
+	
+	def replaceData(self, realData):
+		"""Replaces the default data with real bonafide data"""
+		self.function = realData
 	
 class ScalarNode(Node):
 	"""General node for scalarizing function operations; this class is entirely redundant (unfortunately) with UnaryNode,
@@ -254,6 +257,7 @@ class AlgorithmTree(object):
 	
 	def __repr__(self):
 		"""String representation a tree."""
+		self()	# make sure the tree is evaluated first
 		output = "function eval : %s\nstring eval : %s\nLaTeX eval : %s\nEdges eval : %s" \
 			%(self.function, self.string, self.latex, self.graph.edges())
 		return output

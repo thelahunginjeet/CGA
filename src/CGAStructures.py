@@ -12,7 +12,7 @@ class Node(object):
 		assert type(function) in (CGAFunctions.Data, CGAFunctions.Function)
 		self.latex, self.string, self.function = function.latex, function.string, function.function
 		self.header = False
-		self.nxstring = function.string+'_'+id(self).__repr__()
+		self.nxstring = function.string + '_' + str(id(self))
 		
 	def __repr__(self):
 		"""String representation of a node used for debugging."""
@@ -80,7 +80,7 @@ class DataNode(Node):
 	
 	def replaceData(self, realData):
 		"""Replaces the default data with real bonafide data"""
-		assert type(readData) is CGAFunctions.Data
+		assert realData is not None
 		self.function = realData
 
 	

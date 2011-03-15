@@ -34,11 +34,9 @@ class CGAGenerator(object):
 				-The new terminal nodes are not filled in.
 				-Should not cause a GC problem; tNode has no children."""
 		identity = tNode.getIdentity()
-		if identity:  
-			# right node
+		if identity:  # right node
 			tNode.parent.setChildren(None, newNode)
-		else:  
-			# left node
+		else:  # left node
 			tNode.parent.setChildren(newNode, None)
 		tNode.parent = None
 		tNode.clean()
@@ -55,11 +53,9 @@ class CGAGenerator(object):
 		if fNode.getHeader():
 			pass
 		else:
-			if fNode.getIdentity():
-				# right node
+			if fNode.getIdentity():  # right node
 				fNode.parent.setChildren(None, DataNode())
-			else:
-				# left node
+			else:  # left node
 				fNode.parent.setChildren(DataNode(), None)
 			fNode.parent = None
 			fNode.clean()
@@ -95,40 +91,30 @@ class CGAGenerator(object):
 		# oldNode.clean()
 							
 	@staticmethod
-	def _swap(nodeOne,nodeTwo):
+	def _swap(nodeOne, nodeTwo):
 		"""Swaps two subtrees.  The nodes may be any node except the root; swapping roots (or one root)
 		involves a lot of painful checking, and isn't that useful.
 			Properties:
 				-If either nodeOne or nodeTwo is the root, the function just returns with no crossover.
 				-GC should be fine in this case; we don't actually want to delete anything, just
 					update the references."""
-		# START EDITING HERE:
-		#	- NEED TO THINK ABOUT CLEAN() METHODS
-		#	- NEED TO THINK ABOUT COPY() METHOD FOR CLEANING A SUBTREE
-		oneHeader = nodeOne.getHeader()
-		twoHeader = nodeTwo.getHeader()
-		if oneHeader == True or twoHeader == True:
-			# don't allow this, just return
-			return
-		oneIdentity = nodeOne.getIdentity()
-		twoIdentity = nodeTwo.getIdentity()
-		tmpOne = copy.copy(nodeOne)
-		tmpTwo = copy.copy(nodeTwo)
+		if nodeOne.getHeader() or nodeTwo.getHeader():
+			return None
+		oneIdentity, twoIdentity = nodeOne.getIdentity(), nodeTwo.getIdentity()
+		tmpOne, tmpTwo = copy.copy(nodeOne), copy.copy(nodeTwo)
 		tmpOne.parent, tmpTwo.parent = None, None
-		if (oneIdentity, twoIdentity) == (0, 0):
-			nodeOne.parent.setChildren(tmpTwo)
-			nodeTwo.parent.setChildren(tmpOne)
-		elif (oneIdentity, twoIdentity) == (0, 1):
-			nodeOne.parent.setChildren(tmpTwo)
-			nodeTwo.parent.setChildren(None, tmpOne)
-		elif (oneIdentity, twoIdentity) == (1, 0):
+		if oneIdentity:  # one right
 			nodeOne.parent.setChildren(None, tmpTwo)
-			nodeTwo.parent.setChildren(tmpOne)
-		elif (oneIdentity, twoIdentity) == (1, 1):
-			nodeOne.parent.setChildren(None, tmpTwo)
-			nodeTwo.parent.setChildren(None, tmpOne)
-		else:
-			raise TypeError, "You have some node identity issues (%s, %s); try again . . ."%(oneIdentity, twoIdentity)		
+			if twoIdentity:  # two right
+				nodeTwo.parent.setChildren(None, tmpOne)
+			else:  # two left
+				nodeTwo.parent.setChildren(tmpOne, None)
+		else:  # one left
+			nodeOne.parent.setChildren(tmpTwo)
+			if twoIdentity:  # two right
+				nodeTwo.parent.setChildren(None, tmpOne)
+			else:  # two left
+				nodeTwo.parent.setChildren(tmpOne, None)
 											
 	@staticmethod
 	def _createRandomFunctionalNode():	

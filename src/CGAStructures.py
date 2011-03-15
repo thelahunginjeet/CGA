@@ -80,7 +80,7 @@ class DataNode(Node):
 	
 	def replaceData(self, realData):
 		"""Replaces the default data with real bonafide data"""
-		assert type(readData) is CGAFunctions.Data
+		assert realData is not None
 		self.function = realData
 
 	

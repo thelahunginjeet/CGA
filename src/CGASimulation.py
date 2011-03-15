@@ -105,7 +105,7 @@ class CGASimulation(Subject):
         parents = [self.select_parent(method='tournament') for x in range(0,self.forestSize)]
         # now obtain the offspring, two at a time
         offspring = []
-        for i in range(0,self.forestSize,2):
+        for i in range(0, self.forestSize, 2):
             offspring += self.mate(random.choice(parents),random.choice(parents))
         # overwrite current forest
         self.population = offspring

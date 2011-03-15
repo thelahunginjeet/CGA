@@ -1,27 +1,4 @@
 README file for CGA project.
 
-branch	: master
-purpose : everything that works goes here
-
-RECENT:
-	-added a .clean() method that recursively sets nodes to None
-	-might need a .copy() method that recursively copies because clean() still has links
-	-	ultimatedly, you should copy() a subtree, then clean() the original if need be
-
-TODO:
-	-need to figure be more vigilant about reference/value passing so that trees aren't begin changed in parallel
-	-need random [0,1] numbers in there somehow
-	-would clean things up to make population a class (CGAPopulation); that would allow implementation
-		of methods to collect data (max fitness, mean, etc.)
-
-PROBLEMS:
-	-function dicts need to initialize new Data/Function objects instead of referencing them 
-
-QUESTIONS:
-	-should we formally replace nan/inf/-inf with zero before an advance step?
-	-simulation has a lot of parameters; better way to handle them?
-	-are there redundant calls to tree.update() in the mutation operators?
-	-all mutation operators except crossover are per-node; do we want crossover to be per-node?
-	-discovered a "feature" (bug).  Since parents are selected two at a time, producing two offspring, 
-		odd forestSizes quickly become even (+1).  Changed things so that forestSize is forced to be
-		even (1 is added if forestSize is odd and a message is printed).
+branch	: hotfix-datafunc
+purpose : rewrote the CGAFunctions and now I am changing the code around those fixes

@@ -111,9 +111,5 @@ class CGAFunctionsTests(unittest.TestCase):
 		self.assertEquals(self.methodFactory.getUnary('log').string, 'log(%s)')
 		self.assertEquals(self.methodFactory.getBinary('+').string, '(%s+%s)')
 	
-	def testFunction(self):
-		print "\n----- testing function names -----"
-		pass
-		
 if __name__ == '__main__':
 	unittest.main()

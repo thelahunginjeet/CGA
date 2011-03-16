@@ -1,4 +1,12 @@
 README file for CGA project.
 
-branch	: hotfix-datafunc
-purpose : rewrote the CGAFunctions and now I am changing the code around those fixes
+branch	: develop
+purpose : main moving target for the project
+
+FEATURES & FIXES:
+	- need to add a copy method for nodes and for subtrees that will retain the structure
+		and fix the reference issues
+	- need to fix the tree structure; it shouldn't have to update so frequently
+		- perhaps it should have getters that update specific features with booleans as indicators
+		- e.g. getLeaves() returns a list of terminal nodes self.leaves in (True, False)
+

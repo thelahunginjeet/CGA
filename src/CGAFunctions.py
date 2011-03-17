@@ -52,13 +52,11 @@ class DataMethodFactory(dict):
 		self.scalars['sum_ij'] = ("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', DataMethodFactory.dsum)
 		self.SCALARS = len(self.scalars)
 		
-		# reverse dictionaries - it's one-to-one, so no problems; the reverse dictionaries allow
-		#	you to use node.string to access members.  This is important for copying nodes.
-		# TODO - these don't work for mutable data
-		self.rev_data = dict((self.data[k][0],k) for k in self.data)
-		self.rev_unary = dict((self.unary[k][0],k) for k in self.unary)
-		self.rev_binary = dict((self.binary[k][0],k) for k in self.binary)
-		self.rev_scalars = dict((self.scalars[k][0],k) for k in self.scalars)
+		# reverse dicts (wait for it . . . ah) for accessing by .string
+		self.atad = dict((self.data[k][0],k) for k in self.data)
+		self.yranu = dict((self.unary[k][0],k) for k in self.unary)
+		self.yranib = dict((self.binary[k][0],k) for k in self.binary)
+		self.sralacs = dict((self.scalars[k][0],k) for k in self.scalars)
 
 	@staticmethod
 	def random(dictionary, size):
@@ -75,33 +73,27 @@ class DataMethodFactory(dict):
 		
 	def getData(self, name=None):
 		"""Method to return a named data element or if None a random data element"""
-		if self.data.has_key(name) or name is None:
-			# regular forward access
+		if name in self.data or name is None:
 			return DataMethodFactory.randomDF(name, self.data, self.DATA)
-		else:
-			# reverse access
-			return DataMethodFactory.randomDF(self.rev_data[name], self.data, self.DATA)
+		return DataMethodFactory.randomDF(self.atad[name], self.data, self.DATA)
 	
 	def getUnary(self, name=None):
 		"""Method to return a named unary operator or if None a random unary operator"""
-		if self.unary.has_key(name) or name is None:
+		if name in self.unary or name is None:
 			return DataMethodFactory.randomDF(name, self.unary, self.UNARY)
-		else:
-			return DataMethodFactory.randomDF(self.rev_unary[name], self.unary, self.UNARY)
+		return DataMethodFactory.randomDF(self.yranu[name], self.unary, self.UNARY)
 	
 	def getBinary(self, name=None):
 		"""Method to return a named binary operator or if None a random binary operator"""
-		if self.binary.has_key(name) or name is None:
+		if name in self.binary or name is None:
 			return DataMethodFactory.randomDF(name, self.binary, self.BINARY)
-		else:
-			return DataMethodFactory.randomDF(self.rev_binary[name], self.binary, self.BINARY)
+		return DataMethodFactory.randomDF(self.yranib[name], self.binary, self.BINARY)
 
 	def getScalar(self, name=None):
 		"""Method to return a named scalarizing operator or if None a random scalarizing operator"""
 		if self.scalars.has_key(name) or name is None:
 			return DataMethodFactory.randomDF(name, self.scalars, self.SCALARS)
-		else:
-			return DataMethodFactory.randomDF(self.rev_scalars[name], self.scalars, self.SCALARS)
+		return DataMethodFactory.randomDF(self.sralacs[name], self.scalars, self.SCALARS)
 
 	@staticmethod
 	def nantrace(self, x):
@@ -135,12 +127,40 @@ class CGAFunctionsTests(unittest.TestCase):
 	
 	def testReverseAccess(self):
 		print "\n----- testing reverse dictionary access -----"
-		scalar = self.methodFactory.getScalar('tr')
-		unary = self.methodFactory.getUnary('log')
-		binary = self.methodFactory.getBinary('+')
-		self.assertEquals(scalar.string, self.methodFactory.getScalar(scalar.string).string)
-		self.assertEquals(unary.string, self.methodFactory.getUnary(unary.string).string)
-		self.assertEquals(binary.string, self.methodFactory.getBinary(binary.string).string)
+		N = 10
+		for i in range(N):
+			binary = self.methodFactory.getBinary()
+			binary2 = self.methodFactory.getBinary(binary.string)
+			if binary.string == binary2.string:
+				self.assertEquals((binary.string, binary.latex, binary.function), (binary.string, binary.latex, binary.function))
+			else:	
+				self.assertNotEquals((binary.string, binary.latex, binary.function), (binary.string, binary.latex, binary.function))
+			self.assertNotEquals(binary, binary2)
+		for i in range(N):
+			unary = self.methodFactory.getUnary()
+			unary2 = self.methodFactory.getUnary(unary.string)
+			if unary.string == unary2.string:
+				self.assertEquals((unary.string, unary.latex, unary.function), (unary.string, unary.latex, unary.function))
+			else:
+				self.assertNotEquals((unary.string, unary.latex, unary.function), (unary.string, unary.latex, unary.function))
+			self.assertNotEquals(unary, unary2)
+		for i in range(N):
+			data = self.methodFactory.getData()
+			data2 = self.methodFactory.getData(data.string)
+			if data.string == data2.string:
+				self.assertEquals((data.string, data.latex, data.function), (data.string, data.latex, data.function))
+			else:				
+				self.assertNotEquals((data.string, data.latex, data.function), (data.string, data.latex, data.function))	
+			self.assertNotEquals(data, data2)
+		for i in range(N):
+			scalar = self.methodFactory.getScalar()
+			scalar2 = self.methodFactory.getScalar(scalar.string)
+			if scalar.string == scalar2.string:
+				self.assertEquals((scalar.string, scalar.latex, scalar.function), (scalar.string, scalar.latex, scalar.function))
+			else:
+				self.assertNotEquals((scalar.string, scalar.latex, scalar.function), (scalar.string, scalar.latex, scalar.function))
+			self.assertNotEquals(scalar, scalar2)
+
 	
 if __name__ == '__main__':
 	unittest.main()

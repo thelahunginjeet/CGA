@@ -165,10 +165,6 @@ class UnaryNode(Node):
 		leval = self.left._evalFunction()
 		assert leval is not None
 		return self.function(leval)
-#		if leval is None:
-#			return None
-#		else:
-#			return self.function(leval)
 		
 	def _evalString(self):
 		return self.string % (self.left._evalString())

@@ -400,12 +400,12 @@ class AlgorithmTreeTests(unittest.TestCase):
 		# do a copy
 		newDataNode = dNode.copy()
 		# compare addresses
-		assert id(dNode) != id(newDataNode)
+		self.assertNotEquals(id(dNode),id(newDataNode))
 		# set the original to None
 		dNode = None
 		# original should be None but copy should not
-		assert dNode is None
-		assert newDataNode is not None
+		self.assertEquals(dNode,None)
+		self.assertNotEquals(newDataNode,None)
 		
 	def testCopyUnaryNode(self):
 		print "\n----- testing copy() of unary node -----"
@@ -416,8 +416,8 @@ class AlgorithmTreeTests(unittest.TestCase):
 		# copy the unary node
 		newUNode = uNode.copy()
 		# check addresses
-		assert id(uNode) != id(newUNode)
-		assert id(uNode.getChildren()[0]) != id(newUNode.getChildren()[0])
+		self.assertNotEquals(id(uNode),id(newUNode))
+		self.assertNotEquals(id(uNode.getChildren()[0]),id(newUNode.getChildren()[0]))
 		
 	def testCopyBinaryNode(self):
 		print "\n----- testing copy() of binary node -----"
@@ -428,9 +428,9 @@ class AlgorithmTreeTests(unittest.TestCase):
 		bNode.setChildren(dNode1,dNode2)
 		# copy the node
 		newBNode = bNode.copy()
-		assert id(newBNode) != id(bNode)
-		assert id(newBNode.getChildren()[0]) != id(bNode.getChildren()[0])
-		assert id(newBNode.getChildren()[1]) != id(bNode.getChildren()[1])
+		self.assertNotEquals(id(newBNode),id(bNode))
+		self.assertNotEquals(id(newBNode.getChildren()[0]),id(bNode.getChildren()[0]))
+		self.assertNotEquals(id(newBNode.getChildren()[1]),id(bNode.getChildren()[1]))
 		
 	def testRecursiveCopy(self):
 		print "\n----- testing recursive copy() -----"
@@ -445,9 +445,9 @@ class AlgorithmTreeTests(unittest.TestCase):
 		print 'Original subtree: ', uNode1,uNode1.getChildren()[0],uNode1.getChildren()[0].getChildren()[0]
 		print 'Copied subtree: ', newUNode,newUNode.getChildren()[0],newUNode.getChildren()[0].getChildren()[0]
 		# check addresses
-		assert id(uNode1) != id(newUNode)
-		assert id(newUNode.getChildren()[0]) != id(uNode2)
-		assert id(newUNode.getChildren()[0].getChildren()[0]) != id(dNode)
+		self.assertNotEquals(id(uNode1),id(newUNode))
+		self.assertNotEquals(id(newUNode.getChildren()[0]),id(uNode2))
+		self.assertNotEquals(id(newUNode.getChildren()[0].getChildren()[0]),id(dNode))
 		
 	def testTreeCopy(self):
 		print "\n----- testing recursive copy() of algorithm tree -----"

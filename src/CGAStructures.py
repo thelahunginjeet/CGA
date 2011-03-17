@@ -465,10 +465,18 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
+		tree.update()
 		tree()
+		print "Original tree (node,id): "
+		print [(n.string,id(n)) for n in tree.nodes]
+		print "Root, root header value:", tree.root,tree.root.getHeader()
 		newTree = tree.copy()
 		root.clean()
-		print newTree
+		newTree.update()
+		newTree()
+		print "Copy tree (node,id): "
+		print [(n.string,id(n)) for n in newTree.nodes]
+		print "Root, root header value:", newTree.root,newTree.root.getHeader()
 		
 		
 if __name__ == '__main__':

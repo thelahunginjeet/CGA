@@ -48,8 +48,8 @@ class DataMethodFactory(dict):
 		
 		# the scalarizing functions
 		self.scalars = {}
-		self.scalars['tr'] = ("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', DataMethodFactory.nantrace)
-		self.scalars['sum_ij'] = ("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', DataMethodFactory.dsum)
+		self.scalars['tr'] = ("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', self.nantrace)
+		self.scalars['sum_ij'] = ("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', self.dsum)
 		self.SCALARS = len(self.scalars)
 		
 		# reverse dicts (wait for it . . . ah) for accessing by .string
@@ -94,9 +94,10 @@ class DataMethodFactory(dict):
 		if self.scalars.has_key(name) or name is None:
 			return DataMethodFactory.randomDF(name, self.scalars, self.SCALARS)
 		return DataMethodFactory.randomDF(self.sralacs[name], self.scalars, self.SCALARS)
+	
 
 	@staticmethod
-	def nantrace(self, x):
+	def nantrace(x):
 		# nan compatible trace
 		try:
 			y = MATH.nansum(x.diagonal())
@@ -105,8 +106,8 @@ class DataMethodFactory(dict):
 		return y
 
 	@staticmethod
-	def dsum(self, x):
-		# nan compatible sub of the elements of a matrix
+	def dsum(x):
+		# nan compatible sum of the elements of a matrix
 		try:
 			y = MATH.nansum(x)
 		except IndexError:
@@ -124,6 +125,17 @@ class CGAFunctionsTests(unittest.TestCase):
 		self.assertEquals(self.methodFactory.getScalar('tr').string, 'tr(%s)')
 		self.assertEquals(self.methodFactory.getUnary('log').string, 'log(%s)')
 		self.assertEquals(self.methodFactory.getBinary('+').string, '(%s+%s)')
+		
+	def testFunctions(self):
+		print "\n----- testing function evaluation -----"
+		mynansum = self.methodFactory.getScalar('sum_ij')
+		mynantrace = self.methodFactory.getScalar('tr')
+		mylog = self.methodFactory.getUnary('log')
+		mysum = self.methodFactory.getBinary('+')
+		self.assertAlmostEquals(0.0,mylog.function(1.0))
+		self.assertAlmostEquals(2.0,mysum.function(1.0,1.0))
+		self.assertAlmostEquals(2.0,mynansum.function([1.0,MATH.nan,1.0,MATH.nan]))
+		self.assertAlmostEquals(2.0,mynansum.function(MATH.eye(2)))
 	
 	def testReverseAccess(self):
 		print "\n----- testing reverse dictionary access -----"

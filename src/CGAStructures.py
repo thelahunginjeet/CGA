@@ -33,6 +33,11 @@ class Node(object):
 	def _evalEdges(self):
 		return []
 	
+	def copy(self):
+		"""Returns a new instance of a node identical to the calling node; must be
+		overridden in base classes."""
+		raise Exception, "base class copy() should never be called"
+	
 	def clean(self):
 		self = None
 		return self
@@ -81,6 +86,10 @@ class DataNode(Node):
 		"""Replaces the default data with real bonafide data"""
 		assert realData is not None
 		self.function = realData
+		
+	def copy(self):
+		"""Copy method for a data node is simple, as data node are always terminal."""
+		return DataNode(CGAFunctions.DataMethodFactory().getData(self.string))
 
 	
 class ScalarNode(Node):
@@ -111,6 +120,12 @@ class ScalarNode(Node):
 		
 	def _evalEdges(self):
 		return [(self.nxstring,self.left.nxstring)] + self.left._evalEdges()
+	
+	def copy(self):
+		"""Returns a copy (new instance) of the node.  Also copies the node's children."""
+		newScalar = ScalarNode(CGAFunctions.DataMethodFactory().getScalar(self.string))
+		newScalar.setChildren(self.left.copy())
+		return newScalar
 		
 	def setChildren(self, left=None, right=None):
 		if left is not None:
@@ -136,6 +151,12 @@ class UnaryNode(Node):
 	def clean(self):
 		self.left = self.left.clean()
 		return self.left
+	
+	def copy(self):
+		"""Returns a copy (new instance) of the node.  Also copies the node's children."""
+		newUnary = UnaryNode(CGAFunctions.DataMethodFactory().getUnary(self.string))
+		newUnary.setChildren(self.left.copy())
+		return newUnary
 	
 	def _evalNodes(self):
 		return [self] + self.left._evalNodes()
@@ -186,7 +207,13 @@ class BinaryNode(Node):
 		self.left = self.left.clean()
 		self.right = self.right.clean()
 		return self.right  # just need to return None, so either left or right
-		
+	
+	def copy(self):
+		"""Returns a copy (new instance) of the node. Also copies the node's children."""
+		newBinary = BinaryNode(CGAFunctions.DataMethodFactory().getBinary(self.string))
+		newBinary.setChildren(self.left.copy(),self.right.copy())
+		return newBinary
+	
 	def _evalNodes(self):
 		return [self] + self.left._evalNodes() + self.right._evalNodes()
 
@@ -258,6 +285,11 @@ class AlgorithmTree(object):
 		"""Recurse the tree and return a list of all of the nodes in the tree"""
 		self.nodes = self.root._evalNodes()
 		self.termini = [x for x in self.nodes if isinstance(x, DataNode)]
+		
+	def copy(self):
+		"""Recursive copy of the entire tree; returns a tree."""
+		newTree = AlgorithmTree(self.root.copy())
+		return newTree
 		
 	def evaluateFunction(self):
 		"""Recurse the tree and evaluate the function; if there are still empty nodes in
@@ -356,12 +388,92 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
 		tree()
+		print 'Tree before node cleaning:'
+		print tree
 		root.setChildren(DataNode(), None)
 		node1.clean()
 		tree()
+		print 'Tree after node cleaning:'
+		print tree
 		draw(tree.graph)
 		pylab.show()
-
+	
+	def testCopyDataNode(self):
+		print "\n----- testing copy() of data node -----"
+		dNode = DataNode(self.methodFactory.getData('pi'))
+		# do a copy
+		newDataNode = dNode.copy()
+		# compare addresses
+		assert id(dNode) != id(newDataNode)
+		# set the original to None
+		dNode = None
+		# original should be None but copy should not
+		assert dNode is None
+		assert newDataNode is not None
+		
+	def testCopyUnaryNode(self):
+		print "\n----- testing copy() of unary node -----"
+		# make a unary node with a data child
+		uNode = UnaryNode(self.methodFactory.getUnary('exp'))
+		dNode = DataNode(self.methodFactory.getData('pi'))
+		uNode.setChildren(dNode)
+		# copy the unary node
+		newUNode = uNode.copy()
+		# check addresses
+		assert id(uNode) != id(newUNode)
+		assert id(uNode.getChildren()[0]) != id(newUNode.getChildren()[0])
+		
+	def testCopyBinaryNode(self):
+		print "\n----- testing copy() of binary node -----"
+		# make a binary node with data children
+		bNode = BinaryNode(self.methodFactory.getBinary('+'))
+		dNode1 = DataNode(self.methodFactory.getData('pi'))
+		dNode2 = DataNode(self.methodFactory.getData('1'))
+		bNode.setChildren(dNode1,dNode2)
+		# copy the node
+		newBNode = bNode.copy()
+		assert id(newBNode) != id(bNode)
+		assert id(newBNode.getChildren()[0]) != id(bNode.getChildren()[0])
+		assert id(newBNode.getChildren()[1]) != id(bNode.getChildren()[1])
+		
+	def testRecursiveCopy(self):
+		print "\n----- testing recursive copy() -----"
+		# make a small subtree (no root, just linked nodes)
+		uNode1 = UnaryNode(self.methodFactory.getUnary('exp'))
+		uNode2 = UnaryNode(self.methodFactory.getUnary('tanh'))
+		dNode = DataNode(self.methodFactory.getData('pi'))
+		uNode1.setChildren(uNode2)
+		uNode2.setChildren(dNode)
+		# copy uNode1
+		newUNode = uNode1.copy()
+		print 'Original subtree: ', uNode1,uNode1.getChildren()[0],uNode1.getChildren()[0].getChildren()[0]
+		print 'Copied subtree: ', newUNode,newUNode.getChildren()[0],newUNode.getChildren()[0].getChildren()[0]
+		# check addresses
+		assert id(uNode1) != id(newUNode)
+		assert id(newUNode.getChildren()[0]) != id(uNode2)
+		assert id(newUNode.getChildren()[0].getChildren()[0]) != id(dNode)
+		
+	def testTreeCopy(self):
+		print "\n----- testing recursive copy() of algorithm tree -----"
+		root = BinaryNode(self.methodFactory.getBinary('/'))
+		node1 = UnaryNode(self.methodFactory.getUnary('exp'))
+		node2 = UnaryNode(self.methodFactory.getUnary('log'))
+		node3 = UnaryNode(self.methodFactory.getUnary('sin'))
+		node4 = UnaryNode(self.methodFactory.getUnary('log'))
+		# immutable data - stored
+		constant1 = DataNode(self.methodFactory.getData('pi'))
+		constant2 = DataNode(self.methodFactory.getData('1'))
+		tree = AlgorithmTree(root)
+		root.setChildren(node1, node2)
+		node1.setChildren(node3)
+		node3.setChildren(node4)
+		node2.setChildren(constant1)
+		node4.setChildren(constant2)
+		tree()
+		newTree = tree.copy()
+		root.clean()
+		print newTree
+		
 		
 if __name__ == '__main__':
 	unittest.main()

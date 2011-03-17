@@ -51,6 +51,14 @@ class DataMethodFactory(dict):
 		self.scalars['tr'] = ("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', DataMethodFactory.nantrace)
 		self.scalars['sum_ij'] = ("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', DataMethodFactory.dsum)
 		self.SCALARS = len(self.scalars)
+		
+		# reverse dictionaries - it's one-to-one, so no problems; the reverse dictionaries allow
+		#	you to use node.string to access members.  This is important for copying nodes.
+		# TODO - these don't work for mutable data
+		self.rev_data = dict((self.data[k][0],k) for k in self.data)
+		self.rev_unary = dict((self.unary[k][0],k) for k in self.unary)
+		self.rev_binary = dict((self.binary[k][0],k) for k in self.binary)
+		self.rev_scalars = dict((self.scalars[k][0],k) for k in self.scalars)
 
 	@staticmethod
 	def random(dictionary, size):
@@ -67,19 +75,33 @@ class DataMethodFactory(dict):
 		
 	def getData(self, name=None):
 		"""Method to return a named data element or if None a random data element"""
-		return DataMethodFactory.randomDF(name, self.data, self.DATA)
+		if self.data.has_key(name) or name is None:
+			# regular forward access
+			return DataMethodFactory.randomDF(name, self.data, self.DATA)
+		else:
+			# reverse access
+			return DataMethodFactory.randomDF(self.rev_data[name], self.data, self.DATA)
 	
 	def getUnary(self, name=None):
 		"""Method to return a named unary operator or if None a random unary operator"""
-		return DataMethodFactory.randomDF(name, self.unary, self.UNARY)
+		if self.unary.has_key(name) or name is None:
+			return DataMethodFactory.randomDF(name, self.unary, self.UNARY)
+		else:
+			return DataMethodFactory.randomDF(self.rev_unary[name], self.unary, self.UNARY)
 	
 	def getBinary(self, name=None):
 		"""Method to return a named binary operator or if None a random binary operator"""
-		return DataMethodFactory.randomDF(name, self.binary, self.BINARY)
+		if self.binary.has_key(name) or name is None:
+			return DataMethodFactory.randomDF(name, self.binary, self.BINARY)
+		else:
+			return DataMethodFactory.randomDF(self.rev_binary[name], self.binary, self.BINARY)
 
 	def getScalar(self, name=None):
 		"""Method to return a named scalarizing operator or if None a random scalarizing operator"""
-		return DataMethodFactory.randomDF(name, self.scalars, self.SCALARS)
+		if self.scalars.has_key(name) or name is None:
+			return DataMethodFactory.randomDF(name, self.scalars, self.SCALARS)
+		else:
+			return DataMethodFactory.randomDF(self.rev_scalars[name], self.scalars, self.SCALARS)
 
 	@staticmethod
 	def nantrace(self, x):
@@ -110,6 +132,15 @@ class CGAFunctionsTests(unittest.TestCase):
 		self.assertEquals(self.methodFactory.getScalar('tr').string, 'tr(%s)')
 		self.assertEquals(self.methodFactory.getUnary('log').string, 'log(%s)')
 		self.assertEquals(self.methodFactory.getBinary('+').string, '(%s+%s)')
+	
+	def testReverseAccess(self):
+		print "\n----- testing reverse dictionary access -----"
+		scalar = self.methodFactory.getScalar('tr')
+		unary = self.methodFactory.getUnary('log')
+		binary = self.methodFactory.getBinary('+')
+		self.assertEquals(scalar.string, self.methodFactory.getScalar(scalar.string).string)
+		self.assertEquals(unary.string, self.methodFactory.getUnary(unary.string).string)
+		self.assertEquals(binary.string, self.methodFactory.getBinary(binary.string).string)
 	
 if __name__ == '__main__':
 	unittest.main()

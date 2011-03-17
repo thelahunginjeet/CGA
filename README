@@ -20,4 +20,9 @@ FEATURES / FIXES:
 		fixes the reference issues, assuming we rewrite the Generator() and Simulator() classes 
 		to manipulate copies when appropriate.  tree.copy() returns an AlgorithmTree; everything
 		else returns a node.
+	- clean up mutation operators; I think the removal of EmptyNode() now means that all manipulated
+		trees come back as evaluateable, so some of those comments are no longer relevant.
+	- move the CGAGenerator._getRandomFunctional() into CGAFunctions.DataMethodFactory()?
+	- should we write functional node constructors like DataNode, so that a call with no arguments
+		returns a random one?
 

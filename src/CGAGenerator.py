@@ -33,7 +33,7 @@ class CGAGenerator(object):
 				-newNode can be a dataNode, in which case it will be a terminal leaf (replacing an empty node)
 				-The new terminal nodes are not filled in.
 				-Should not cause a GC problem; tNode has no children."""
-		assert tNode.header is False
+		assert tNode.getHeader() is False
 		identity = tNode.getIdentity()
 		if identity:  # right node
 			tNode.parent.setChildren(None, newNode)
@@ -209,8 +209,6 @@ class CGAGenerator(object):
 		If either nodeOne or nodeTwo are their respective tree's root, the crossover will not be performed."""
 		treeOne.update()
 		treeTwo.update()
-		# check for roots; don't do anything if one is the root
-		# ERROR : getHeader() doesn't necessarily return a boolean
 		if nodeOne.getHeader() or nodeTwo.getHeader():
 			pass
 		else:	
@@ -308,7 +306,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		print 'Tree before root replacement (node,id): '
 		print [(n.string,id(n)) for n in self.testTree.nodes]
 		print 'Root : ', self.testTree.root
-		print 'Root header : ', self.testTree.root.header
+		print 'Root header : ', self.testTree.root.getHeader()
 		newNode = ScalarNode(self.methodFactory.getScalar('tr'))
 		CGAGenerator._replace(self.testTree,self.testTree.root,newNode)
 		self.testTree.update()
@@ -316,7 +314,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		print 'Tree after root replacement (node, id): '
 		print [(n.string,id(n)) for n in self.testTree.nodes]
 		print 'Root : ', self.testTree.root
-		print 'Root header : ', self.testTree.root.header
+		print 'Root header : ', self.testTree.root.getHeader()
 		
 	def testSwap(self):
 		print "\n\n----- testing subtree swap -----"

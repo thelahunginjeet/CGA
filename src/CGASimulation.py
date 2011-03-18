@@ -23,12 +23,16 @@ class CGAChromosome(object):
     def __init__(self,tree=None,fitness=MATH.nan):
         self.tree = tree
         self.fitness = fitness
+    
+    def copy(self):
+        return CGAChromosome(self.tree.copy(),self.fitness)
 
     # compare must return -1, 0, 1.  this will lead to a problems because it will return None in some cases
-
-#    def __cmp__(self,other):
-#        if hasattr(other,'fitness'):
-#            return cmp(self.fitness,other.fitness)
+    # cmp helps a lot, so it would be nice to get this to work properly . . .
+    #def __cmp__(self,other):
+    #    assert self.fitness is not None
+    #    if hasattr(other,'fitness'):
+    #        return cmp(self.fitness,other.fitness)
 
 
 class CGASimulation(Subject):
@@ -100,7 +104,7 @@ class CGASimulation(Subject):
 
 
     def advance(self):
-        """Step forward one step in time recording.  Before advancing, """
+        """Step forward one step in time recording."""
         # first select a round of parents
         parents = [self.select_parent(method='tournament') for x in range(0,self.forestSize)]
         # now obtain the offspring, two at a time
@@ -115,16 +119,17 @@ class CGASimulation(Subject):
         maxFit = MATH.nanmax([k.fitness for k in self.population])
         wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
         meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
-        print "advanced : ", self.time
+        # notify dictionary observer
         self.notify(time=self.time,minSize=minN,maxSize=maxN,maxFit=maxFit,wellFormed=wellFormed,meanFit=meanFit)
+        # advance time
         self.time += 1
         
     def mate(self,parentOne,parentTwo):
         """Accepts two parents and returns two offspring; if the offspring is unchanged from one of
         the parents, the fitness is not re-evaluated, just copied."""
         # offspring begin as copies of their parents
-        offOne = copy.copy(parentOne)
-        offTwo = copy.copy(parentTwo)
+        offOne = parentOne.copy()
+        offTwo = parentTwo.copy()
         # fitEval[i] will be set to True if any mutations occur that make offspring i different from
         #    parent i or j; this way we avoid unnecessary fitness evaluations
         fitEval = [False,False]
@@ -163,10 +168,12 @@ class CGASimulation(Subject):
             if MATH.random.rand() < self.pP:
                 CGAGenerator.prune(offOne.tree, n)
                 fitEval[1] = True
-        # compute fitnesses, if they have changed
+        # compute fitnesses, if they have changed, and update the trees
         if fitEval[0]:
+            offOne.tree.update()
             offOne.fitness = self.evaluate_fitness(offOne.tree)
         if fitEval[1]:
+            offOne.tree.update()
             offTwo.fitness = self.evaluate_fitness(offTwo.tree)
         return offOne,offTwo
          
@@ -190,10 +197,11 @@ class CGASimulation(Subject):
     
     def tournament_selection(self,k=0.75):
         pOne,pTwo = (random.choice(self.population),random.choice(self.population))
+        # modified to avoid using __cmp__ method of chromosome
         if MATH.random.rand() < k:
-            return pOne if pOne > pTwo else pTwo
+            return pOne if pOne.fitness > pTwo.fitness else pTwo
         else:
-            return pOne if pOne < pTwo else pTwo
+            return pOne if pOne.fitness < pTwo.fitness else pTwo
         
     
     def evaluate_fitness(self,tree):
@@ -260,16 +268,16 @@ class CGASimulationTests(unittest.TestCase):
         self.dataLogger = DataLogger()
         self.mySimulation.attach(self.dataLogger)
         
-    def testCGAChromosome(self):
-        print "\n\n----- testing comparison operator overloads in CGAChromosome() -----"
-        c1 = CGAChromosome(tree=None,fitness=1.0)
-        c2 = CGAChromosome(tree=None,fitness=0.0)
-        if c1 > c2:
-            print 'Fitness %f > %f' %(c1.fitness,c2.fitness)
-        else:
-            print 'Fitness %f <= %f' %(c1.fitness,c2.fitness)
-        print 'Maximum fitness : ',MATH.max([c1,c2]).fitness
-        print 'Minimum fitness : ',MATH.min([c2,c2]).fitness
+    #def testCGAChromosome(self):
+    #    print "\n\n----- testing comparison operator overloads in CGAChromosome() -----"
+    #    c1 = CGAChromosome(tree=None,fitness=1.0)
+    #    c2 = CGAChromosome(tree=None,fitness=0.0)
+    #    if c1 > c2:
+    #        print 'Fitness %f > %f' %(c1.fitness,c2.fitness)
+    #    else:
+    #        print 'Fitness %f <= %f' %(c1.fitness,c2.fitness)
+    #    print 'Maximum fitness : ',MATH.max([c1,c2]).fitness
+    #    print 'Minimum fitness : ',MATH.min([c2,c2]).fitness
         
     def testAdvance(self):
         print "\n\n----- testing one-step advancement -----"
@@ -277,7 +285,18 @@ class CGASimulationTests(unittest.TestCase):
         print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
         self.mySimulation.advance()
-        print 'After advancement:'
+        print 'After advancement (one step):'
+        print 'Pop. size : ', len(self.mySimulation.population)
+        print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
+        
+    def testMultiAdvance(self):
+        print "\n\n----- testing advancement of the tree over many steps -----"
+        print 'Before advancement:'
+        print 'Pop. size : ', len(self.mySimulation.population)
+        print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
+        for i in range(100):
+            self.mySimulation.advance()
+        print 'After advancement (100 steps):'
         print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
         

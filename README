@@ -7,6 +7,9 @@ PROBLEM:
 	- rev_dict'ing doesn't work for mutable data
 
 FEATURES / FIXES:
+	- another update() issue; added back in (temporarily) calls to the other evaluate() functions
+		in the tree to allow testing (otherwise .string, .function, etc. are not created); not the
+		best, but we want to fix all this update() stuff anyway. 
 	- need to fix the tree structure; it shouldn't have to update so frequently
 		- perhaps it should have getters that update specific features with booleans as indicators
 		- e.g. getLeaves() returns a list of terminal nodes self.leaves in (True, False)

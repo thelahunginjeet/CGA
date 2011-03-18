@@ -274,7 +274,11 @@ class AlgorithmTree(object):
 	
 	def update(self):
 		"""General function to update any properties"""
-		self.evaluateNodes()			
+		self.evaluateNodes()
+		self.evaluateString()
+		self.evaluateLatex()
+		self.evaluateFunction()
+		self.evaluateGraph()			
 	
 	# might need to simply have getters to return things like the terminii so that update isn't always called
 	def evaluateNodes(self):

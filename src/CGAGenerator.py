@@ -61,7 +61,6 @@ class CGAGenerator(object):
 			else:  # left node
 				fNode.parent.setChildren(dNode, None)
 			fNode.parent = None
-			fNode.clean()
 	
 	@staticmethod
 	def _replace(tree, oldNode, newNode):

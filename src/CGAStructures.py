@@ -256,35 +256,33 @@ class AlgorithmTree(object):
 		self.root = root
 		self.root.setHeader(True)
 		self.root.setIdentity(0)
-		self._isCurrent = False
+		self._isCurrent = {'nodes':False,'string':False,'function':False,'latex':False,'graph':False}
 		self._graph = Graph()
 		self._function = None
 		self._string = None
 		self._latex = None
-		self._update()
-		
-	def _update(self):
-		"""Updates all the tree values, and sets the current flag to true."""
-		self._nodes = self.root._evalNodes()
-		self._termini = [x for x in self._nodes if isinstance(x, DataNode)] 
-		self._function = self.root._evalFunction()
-		self._string = self.root._evalString()
-		self._latex = self.root._evalLatex()
-		self._graph.clear()
-		self._graph.add_edges_from(self.root._evalEdges())
-		self._isCurrent = True
-	
-	def __call__(self):
-		"""Make the tree callable to evaluate expressions"""
-		if self._isCurrent is False:
-			self._update()
+
+	#def _update(self):
+	#	"""Updates all the tree values, and sets the current flag to true."""
+	#	self._nodes = self.root._evalNodes()
+	#	self._termini = [x for x in self._nodes if isinstance(x, DataNode)] 
+	#	self._function = self.root._evalFunction()
+	#	self._string = self.root._evalString()
+	#	self._latex = self.root._evalLatex()
+	#	self._graph.clear()
+	#	self._graph.add_edges_from(self.root._evalEdges())
+	#	self._isCurrent = True
 	
 	def __repr__(self):
-		"""String representation a tree."""
-		self()	# make sure the tree is evaluated first
+		"""String representation of a tree."""
 		output = "function eval : %s\nstring eval : %s\nLaTeX eval : %s\nEdges eval : %s" \
 			%(self.getFunction(), self.getString(), self.getLatex(), self.getGraph().edges())
 		return output
+	
+	def _evaluateNodes(self):
+		"""Recurse the tree and update the nodes and the tree termini"""
+		self._nodes = self.root._evalNodes()
+		self._termini = [x for x in self._nodes if isinstance(x, DataNode)]
 	
 	def copy(self):
 		"""Recursive copy of the entire tree; returns a tree."""
@@ -294,61 +292,67 @@ class AlgorithmTree(object):
 	def getGraph(self):
 		"""Either returns the stored (correct) graph, or if the nodes need updating the graph is cleared,
 		the tree recursed to get the edgelist, and then the graph composed of those edges is returned."""
-		if self._isCurrent:
+		if self._isCurrent['graph']:
 			return self._graph
-		self()
+		self._evaluateNodes()
+		self._graph.clear()
+		self._graph.add_edges_from(self.root._evalEdges())
+		self._isCurrent['graph'] = True
 		return self._graph
 	
 	def getFunction(self):
 		"""If the nodes are not current, recurse the tree and evaluate the tree's function.
 		Otherwise, just return the correct, stored function."""
-		if self._isCurrent:
+		if self._isCurrent['function']:
 			return self._function
-		self()
+		self._evaluateNodes()
+		self._function = self.root._evalFunction()
+		self._isCurrent['function'] = True
 		return self._function			
 	
 	def getString(self):
 		"""If the nodes are not current, recurse the tree and evaluate the string expression for the tree.
 		Otherwise, just return the correct, stored string expression."""
-		if self._isCurrent:
+		if self._isCurrent['string']:
 			return self._string
-		self()
+		self._evaluateNodes()
+		self._string = self.root._evalString()
+		self._isCurrent['string'] = True
 		return self._string
 	
 	def getLatex(self):
 		"""If the nodes are not current, recurse the tree and evaluate the latex expression for the tree.
 		Otherwise, just return the correct, stored latex expression."""
-		if self._isCurrent:
+		if self._isCurrent['latex']:
 			return self._latex
-		self()
+		self._evaluateNodes()
+		self._latex = self.root._evalLatex()
+		self._isCurrent['latex'] = True
 		return self._latex
 	
 	def getNodes(self):
 		"""If the nodes are not current, recurse the tree and return a list of all of the nodes in the tree.
 		Otherwise, just return a list of the nodes."""
-		if self._isCurrent:
+		if self._isCurrent['nodes']:
 			return self._nodes
-		self()
+		self._evaluateNodes()
+		self._isCurrent['nodes'] = True
 		return self._nodes
 	
 	def getTermini(self):
 		"""If the nodes are not current, recurse the tree to update the nodes are return the terminal nodes.
 		Otherwise, just return the currently stored list."""
-		if self._isCurrent:
+		if self._isCurrent['nodes']:
 			return self._termini
-		self()
+		self._evaluateNodes()
 		return self._termini
 	
 	def nodesHaveChanged(self):
 		"""You are responsible for calling this if you modify the tree.  (Not sure if this can
 		be made automatic or whether it is worth it)."""
 		# ensure that accessors re-evaluate at next request
-		self._isCurrent = False		
-	
-	#def evaluateNodes(self):
-	#	"""Recurse the tree and return a list of all of the nodes in the tree"""
-	#	self._nodes = self.root._evalNodes()
-	#	self._termini = [x for x in self._nodes if isinstance(x, DataNode)]
+		for k in self._isCurrent:
+			self._isCurrent[k] = False		
 		
 		
 	#ef evaluateFunction(self):
@@ -404,7 +408,6 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
 		print tree
 		
 	def testGraph(self):
@@ -425,7 +428,6 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
 		draw(tree.getGraph())
 		pylab.show()
 		
@@ -447,13 +449,11 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
 		print 'Tree before node cleaning:'
 		print tree
 		root.setChildren(DataNode(), None)
 		tree.nodesHaveChanged()
 		node1.clean()
-		tree()
 		print 'Tree after node cleaning:'
 		print tree
 		draw(tree.getGraph())
@@ -530,13 +530,13 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
+		#tree()
 		print "Original tree (node,id): "
 		print [(n.string,id(n)) for n in tree.getNodes()]
 		print "Root, root header value:", tree.root,tree.root.getHeader()
 		newTree = tree.copy()
 		root.clean()
-		newTree()
+		#newTree()
 		print "Copy tree (node,id): "
 		print [(n.string,id(n)) for n in newTree.getNodes()]
 		print "Root, root header value:", newTree.root,newTree.root.getHeader()
@@ -571,7 +571,7 @@ class AlgorithmTreeTests(unittest.TestCase):
 		self.assertNotEquals(tree.getString(),oldString)
 		self.assertNotEquals(tree.getLatex(),oldLatex)
 		self.assertNotEquals(tree.getFunction(),oldFunction)
-		print 'Assertion passed, change properly registered.'
+		print 'Assertion passed, change properly registered everywhere.'
 
 		
 if __name__ == '__main__':

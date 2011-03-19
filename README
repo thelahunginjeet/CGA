@@ -4,10 +4,5 @@ branch	: tree-access, feature branch
 purpose : changing the access model for trees
 
 FEATURES / FIXES:
-	- I'm worried the get() funcs are a bit wonky; I basically decided every property is subservient 
-	to the nodes, since all of them (function, string, etc.) require fetching info from the constituent
-	nodes.  Thus a "new call" (when AlgorithmTree._areNodesCurrent = False) always first results in 
-	a node eval.  Otherwise, if you call getString() after registering an update, 
-	- Is there a danger in copying the update status from a tree?  Is a copy of an up-to-date tree
-	actually up to date?
+	- Is this fix worth worrying about if we still have to manually register tree changes?
 

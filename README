@@ -1,8 +1,12 @@
 README file for CGA project.
 
 branch	: tree-access, feature branch
-purpose : changing the access model for trees
+purpose : changing the access model for trees and removing heavy usage of update()
 
 FEATURES / FIXES:
-	- Is this fix worth worrying about if we still have to manually register tree changes?
+	- trees now have getters (getString(), getFunction(), getLatex(), getNodes(), getTerminii()) that
+	  return the current evaluation for the respective attribute.  This gets around the issue of keeping
+	  an instance attribute that has a copy, because those may be out of sync.  Whenever a method needs 
+	  an attribute, it just has to call the appropriate getter.  This also should reduce some of the 
+	  computational overhead.
 

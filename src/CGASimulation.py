@@ -8,7 +8,7 @@ from CGAPreprocessing import Utilities
 from CGAStructures import AlgorithmTree
 from CGAGenerator import CGAGenerator
 #import CGAGenerator
-from CGALogging import Subject,Observer,DataLogger
+from CGALogging import Subject, Observer, DataLogger
 
 # TODO : 
 #  - write the simulation as a generator
@@ -25,7 +25,7 @@ class CGAChromosome(object):
         self.fitness = fitness
     
     def copy(self):
-        return CGAChromosome(self.tree.copy(),self.fitness)
+        return CGAChromosome(self.tree.copy(), self.fitness)
 
     # compare must return -1, 0, 1.  this will lead to a problems because it will return None in some cases
     # cmp helps a lot, so it would be nice to get this to work properly . . .
@@ -124,23 +124,22 @@ class CGASimulation(Subject):
         # advance time
         self.time += 1
         
-    def mate(self,parentOne,parentTwo):
+    def mate(self, parentOne, parentTwo):
         """Accepts two parents and returns two offspring; if the offspring is unchanged from one of
         the parents, the fitness is not re-evaluated, just copied."""
         # offspring begin as copies of their parents
-        offOne = parentOne.copy()
-        offTwo = parentTwo.copy()
+        offOne, offTwo = parentOne.copy(), parentTwo.copy()
         # fitEval[i] will be set to True if any mutations occur that make offspring i different from
         #    parent i or j; this way we avoid unnecessary fitness evaluations
-        fitEval = [False,False]
+        fitEval = [False, False]
         # CROSSOVER
         # sexual - check for a crossover first.  Allow only one per mating event?
         if MATH.random.rand() < self.pC:
             fitEval = [True,True]
             # pick the nodes (roots won't crossover)
-            nodeOne = random.choice(offOne.tree.nodes)
-            nodeTwo = random.choice(offTwo.tree.nodes)
-            CGAGenerator.single_crossover(offOne.tree, nodeOne, offTwo.tree, nodeTwo)
+            nodeOne = random.choice(offOne.tree.getNodes())
+            nodeTwo = random.choice(offTwo.tree.getNodes())
+            CGAGenerator.single_crossover(nodeOne, nodeTwo)
         # POINT MUTATION
         # now check for point mutations, in both trees
         for n in offOne.tree.nodes:
@@ -185,7 +184,7 @@ class CGASimulation(Subject):
                 -'tournament' : requires a parameter k. two individuals are chosen at random; if 
                     rand < k, the fitter individual is selected.  if rand > k, the less fit one is.
         Regardless of selected method, the parent is returned as a CGAChromosome object."""
-        mstring = method+'_selection'
+        mstring = method + '_selection'
         if hasattr(self,method):
             parent = getattr(self,method)(**kwargs)
         else:

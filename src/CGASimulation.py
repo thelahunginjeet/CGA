@@ -7,7 +7,6 @@ import random
 from CGAPreprocessing import Utilities
 from CGAStructures import AlgorithmTree
 from CGAGenerator import CGAGenerator
-#import CGAGenerator
 from CGALogging import Subject, Observer, DataLogger
 
 # TODO : 
@@ -114,8 +113,8 @@ class CGASimulation(Subject):
         # overwrite current forest
         self.population = offspring
         # a few things we want to save
-        minN = MATH.min([len(k.tree.nodes) for k in self.population])
-        maxN = MATH.max([len(k.tree.nodes) for k in self.population])
+        minN = MATH.min([len(k.tree.getNodes()) for k in self.population])
+        maxN = MATH.max([len(k.tree.getNodes()) for k in self.population])
         maxFit = MATH.nanmax([k.fitness for k in self.population])
         wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
         meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
@@ -132,47 +131,45 @@ class CGASimulation(Subject):
         # fitEval[i] will be set to True if any mutations occur that make offspring i different from
         #    parent i or j; this way we avoid unnecessary fitness evaluations
         fitEval = [False, False]
-        # CROSSOVER
-        # sexual - check for a crossover first.  Allow only one per mating event?
+        # NONCONSERVATIVE (GROWTH, PRUNING) FIRST
+        # GROWTH/EXTENSION
+        for t in offOne.tree.getTermini():
+            if MATH.random.rand() < self.pG:
+                CGAGenerator.grow(offOne.tree, t)
+                fitEval[0] = True
+        for t in offTwo.tree.getTermini():
+            if MATH.random.rand() < self.pG:
+                CGAGenerator.grow(offTwo.tree, t)
+                fitEval[1] = True
+        # PRUNING - SHOULD HAVE KEPT LOCAL COPIES, OR NOT?
+        for n in offOne.tree.getNodes():
+            if MATH.random.rand() < self.pP:
+                CGAGenerator.prune(offOne.tree, n)
+                fitEval[0] = True
+        for n in offTwo.tree.getNodes():
+            if MATH.random.rand() < self.pP:
+                CGAGenerator.prune(offOne.tree, n)
+                fitEval[1] = True
+        # CROSSOVER - ONLY ONE PER MATING EVENT IS ALLOWED
         if MATH.random.rand() < self.pC:
             fitEval = [True,True]
             # pick the nodes (roots won't crossover)
             nodeOne = random.choice(offOne.tree.getNodes())
             nodeTwo = random.choice(offTwo.tree.getNodes())
             CGAGenerator.single_crossover(nodeOne, nodeTwo)
-        # POINT MUTATION
-        # now check for point mutations, in both trees
-        for n in offOne.tree.nodes:
+        # POINT MUTATION 
+        for n in offOne.tree.getNodes():
             if MATH.random.rand() < self.pM:
                 CGAGenerator.point_mutate(offOne.tree, n)
                 fitEval[0] = True
-        for n in offTwo.tree.nodes:
+        for n in offTwo.tree.getNodes():
             if MATH.random.rand() < self.pM:
                 CGAGenerator.point_mutate(offTwo.tree, n)
                 fitEval[1] = True
-        # GROWTH/EXTENSION
-        for t in offOne.tree.termini:
-            if MATH.random.rand() < self.pG:
-                CGAGenerator.grow(offOne.tree, t)
-                fitEval[0] = True
-        for t in offTwo.tree.termini:
-            if MATH.random.rand() < self.pG:
-                CGAGenerator.grow(offTwo.tree, t)
-                fitEval[1] = True
-        # PRUNING
-        for n in offOne.tree.nodes:
-            if MATH.random.rand() < self.pP:
-                CGAGenerator.prune(offOne.tree, n)
-                fitEval[0] = True
-            if MATH.random.rand() < self.pP:
-                CGAGenerator.prune(offOne.tree, n)
-                fitEval[1] = True
         # compute fitnesses, if they have changed, and update the trees
         if fitEval[0]:
-            offOne.tree.update()
             offOne.fitness = self.evaluate_fitness(offOne.tree)
         if fitEval[1]:
-            offOne.tree.update()
             offTwo.fitness = self.evaluate_fitness(offTwo.tree)
         return offOne,offTwo
          
@@ -210,16 +207,15 @@ class CGASimulation(Subject):
         Accuracy is computed in a different function, in order to allow easy swapping in of
         different definitions."""
         weights = {}
-        pi = [x for x in tree.termini if x.string == 'p_i']
-        pj = [x for x in tree.termini if x.string == 'p_j']
-        pij = [x for x in tree.termini if x.string == 'p_ij']
+        pi = [x for x in tree.getTermini() if x.string == 'p_i']
+        pj = [x for x in tree.getTermini() if x.string == 'p_j']
+        pij = [x for x in tree.getTermini() if x.string == 'p_ij']
         for i in self.indices:
             for j in [x for x in self.indices if x > i]:
                 map(lambda x : x.replaceData(self.singleFrequencies[i]), pi)
                 map(lambda x : x.replaceData(self.singleFrequencies[j]), pj)
                 map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
-                tree()
-                weights[(i, j)] = tree.function
+                weights[(i, j)] = tree.getFunction()
         fitness = 1 + self.calculate_accuracy(weights)
         return fitness
     
@@ -277,28 +273,28 @@ class CGASimulationTests(unittest.TestCase):
     #        print 'Fitness %f <= %f' %(c1.fitness,c2.fitness)
     #    print 'Maximum fitness : ',MATH.max([c1,c2]).fitness
     #    print 'Minimum fitness : ',MATH.min([c2,c2]).fitness
-        
+   
     def testAdvance(self):
         print "\n\n----- testing one-step advancement -----"
         print 'Before advancement:'
         print 'Pop. size : ', len(self.mySimulation.population)
-        print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
+        print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
         self.mySimulation.advance()
         print 'After advancement (one step):'
         print 'Pop. size : ', len(self.mySimulation.population)
-        print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
+        print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
         
     def testMultiAdvance(self):
         print "\n\n----- testing advancement of the tree over many steps -----"
         print 'Before advancement:'
         print 'Pop. size : ', len(self.mySimulation.population)
-        print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
+        print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
         for i in range(100):
             self.mySimulation.advance()
         print 'After advancement (100 steps):'
         print 'Pop. size : ', len(self.mySimulation.population)
-        print [(x.tree.string,x.fitness) for x in self.mySimulation.population]
-        
+        print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
+   
     def testDataLogging(self):
         print "\n\n----- testing data logging -----"
         print 'Advancing twice.'
@@ -307,12 +303,13 @@ class CGASimulationTests(unittest.TestCase):
         print 'Logged Data:'
         for k in self.dataLogger.data.keys():
             print k,self.dataLogger.data[k]
-        
+  
     def testPopulation(self):
         print "\n\n----- testing population generation -----"
+        print "Population size : ", len(self.mySimulation.population)
         for x in self.mySimulation.population:
             x.tree()
-            print 'String rep : %s' % x.tree.string
+            print 'String rep : %s' % x.tree.getString()
 
     def testShape(self):
         print "\n\n----- testing shape conversion of input data -----"
@@ -329,7 +326,7 @@ class CGASimulationTests(unittest.TestCase):
         print"\n\n----- testing parental selection -----"
         t1 = time.clock()
         parent = self.mySimulation.select_parent(method='tournament')
-        print 'Parent selected: %s, %f' % (parent.tree.string,parent.fitness)
+        print 'Parent selected: %s, %f' % (parent.tree.getString(),parent.fitness)
         print 'Elapsed time : %f sec' % (time.clock()-t1)
  
         

@@ -218,27 +218,6 @@ class CGASimulation(Subject):
                 weights[(i, j)] = tree.getFunction()
         fitness = 1 + self.calculate_accuracy(weights)
         return fitness
-    
-
-#    def evaluate_fitness_iter(self,tree):
-#        """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
-#        defined as:
-#            fitness = 1 + accuracy
-#        Accuracy is computed in a different function, in order to allow easy swapping in of
-#        different definitions."""
-#        weights = {}
-#        pi = [x for x in tree.termini if x.string == 'p_i']
-#        pj = [x for x in tree.termini if x.string == 'p_j']
-#        pij = [x for x in tree.termini if x.string == 'p_ij']
-#        for i in self.indices:
-#            for j in [x for x in self.indices if x > i]:
-#                map(lambda x : x.replaceData(self.singleFrequencies[i]), pi)
-#                map(lambda x : x.replaceData(self.singleFrequencies[j]), pj)
-#                map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
-#                tree()
-#                weights[(i, j)] = tree.function
-#        fitness = 1 + self.calculate_accuracy(weights)
-#        return fitness
                 
 
     def calculate_accuracy(self,weights):

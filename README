@@ -1,12 +1,12 @@
 README file for CGA project.
 
-branch	: develop
-purpose : main moving target for the project
+branch	: tree-access, feature branch
+purpose : changing the access model for trees and removing heavy usage of update()
 
-FEATURES & FIXES:
-	- need to add a copy method for nodes and for subtrees that will retain the structure
-		and fix the reference issues
-	- need to fix the tree structure; it shouldn't have to update so frequently
-		- perhaps it should have getters that update specific features with booleans as indicators
-		- e.g. getLeaves() returns a list of terminal nodes self.leaves in (True, False)
+FEATURES / FIXES:
+	- trees now have getters (getString(), getFunction(), getLatex(), getNodes(), getTerminii()) that
+	  return the current evaluation for the respective attribute.  This gets around the issue of keeping
+	  an instance attribute that has a copy, because those may be out of sync.  Whenever a method needs 
+	  an attribute, it just has to call the appropriate getter.  This also should reduce some of the 
+	  computational overhead.
 

@@ -33,6 +33,11 @@ class Node(object):
 	def _evalEdges(self):
 		return []
 	
+	def copy(self):
+		"""Returns a new instance of a node identical to the calling node; must be
+		overridden in base classes."""
+		raise Exception, "base class copy() should never be called"
+	
 	def clean(self):
 		self = None
 		return self
@@ -81,6 +86,10 @@ class DataNode(Node):
 		"""Replaces the default data with real bonafide data"""
 		assert realData is not None
 		self.function = realData
+		
+	def copy(self):
+		"""Copy method for a data node is simple, as data node are always terminal."""
+		return DataNode(CGAFunctions.DataMethodFactory().getData(self.string))
 
 	
 class ScalarNode(Node):
@@ -98,10 +107,8 @@ class ScalarNode(Node):
 		
 	def _evalFunction(self):
 		leval = self.left._evalFunction()
-		if leval is None:
-			return None
-		else:
-			return self.function(leval)
+		assert leval is not None
+		return self.function(leval)
 		
 	def _evalString(self):
 		return self.string % (self.left._evalString())
@@ -111,6 +118,12 @@ class ScalarNode(Node):
 		
 	def _evalEdges(self):
 		return [(self.nxstring,self.left.nxstring)] + self.left._evalEdges()
+	
+	def copy(self):
+		"""Returns a copy (new instance) of the node.  Also copies the node's children."""
+		newScalar = ScalarNode(CGAFunctions.DataMethodFactory().getScalar(self.string))
+		newScalar.setChildren(self.left.copy())
+		return newScalar
 		
 	def setChildren(self, left=None, right=None):
 		if left is not None:
@@ -137,6 +150,12 @@ class UnaryNode(Node):
 		self.left = self.left.clean()
 		return self.left
 	
+	def copy(self):
+		"""Returns a copy (new instance) of the node.  Also copies the node's children."""
+		newUnary = UnaryNode(CGAFunctions.DataMethodFactory().getUnary(self.string))
+		newUnary.setChildren(self.left.copy())
+		return newUnary
+	
 	def _evalNodes(self):
 		return [self] + self.left._evalNodes()
 		
@@ -144,10 +163,6 @@ class UnaryNode(Node):
 		leval = self.left._evalFunction()
 		assert leval is not None
 		return self.function(leval)
-#		if leval is None:
-#			return None
-#		else:
-#			return self.function(leval)
 		
 	def _evalString(self):
 		return self.string % (self.left._evalString())
@@ -186,7 +201,13 @@ class BinaryNode(Node):
 		self.left = self.left.clean()
 		self.right = self.right.clean()
 		return self.right  # just need to return None, so either left or right
-		
+	
+	def copy(self):
+		"""Returns a copy (new instance) of the node. Also copies the node's children."""
+		newBinary = BinaryNode(CGAFunctions.DataMethodFactory().getBinary(self.string))
+		newBinary.setChildren(self.left.copy(),self.right.copy())
+		return newBinary
+	
 	def _evalNodes(self):
 		return [self] + self.left._evalNodes() + self.right._evalNodes()
 
@@ -226,57 +247,52 @@ class BinaryNode(Node):
 			
 	
 class AlgorithmTree(object):
-	"""General tree structure for recursion"""
+	"""General tree structure for recursion.  Tree members (function, graph, string, latex) that are
+	assembled from the constituent nodes are retrieved using the respective getter"""
 	def __init__(self, root):
 		self.root = root
 		self.root.setHeader(True)
 		self.root.setIdentity(0)
-		self.graph = Graph()
-		self.update()
 	
 	def __call__(self):
-		"""Make the tree callable to evaluate expressions"""
-		self.update()
-		self.evaluateFunction()
-		self.evaluateString()
-		self.evaluateLatex()
-		self.evaluateGraph()
-	
+		"""Print the current tree fully evaluated"""
+		print self
+		
 	def __repr__(self):
-		"""String representation a tree."""
-		self()	# make sure the tree is evaluated first
+		"""String representation of a tree."""
 		output = "function eval : %s\nstring eval : %s\nLaTeX eval : %s\nEdges eval : %s" \
-			%(self.function, self.string, self.latex, self.graph.edges())
+			%(self.getFunction(), self.getString(), self.getLatex(), self.getGraph().edges())
 		return output
 	
-	def update(self):
-		"""General function to update any properties"""
-		self.evaluateNodes()			
+	def copy(self):
+		"""Recursive copy of the entire tree; returns a tree."""
+		return AlgorithmTree(self.root.copy())
 	
-	# might need to simply have getters to return things like the terminii so that update isn't always called
-	def evaluateNodes(self):
-		"""Recurse the tree and return a list of all of the nodes in the tree"""
-		self.nodes = self.root._evalNodes()
-		self.termini = [x for x in self.nodes if isinstance(x, DataNode)]
-		
-	def evaluateFunction(self):
-		"""Recurse the tree and evaluate the function; if there are still empty nodes in
-		the tree, this will be meaningless."""
-		self.function = self.root._evalFunction()			
-		
-	def evaluateString(self):
-		"""Recurse the tree and evaluate the string expression"""
-		self.string = self.root._evalString()
+	def getGraph(self):
+		"""Return a networkx graph for the trees"""
+		graph = Graph()
+		graph.add_edges_from(self.root._evalEdges())
+		return graph
 	
-	def evaluateLatex(self):
-		"""Recurse the tree and evaluate the LaTeX expression"""
-		self.latex = self.root._evalLatex()
-		
-	def evaluateGraph(self):
-		"""Clears the current graph, recurses the tree to get the edgelist, and then 
-		returns the graph composed of those edges."""
-		self.graph.clear()
-		self.graph.add_edges_from(self.root._evalEdges())
+	def getFunction(self):
+		"""Return the function evaluation of the tree"""
+		return self.root._evalFunction()
+	
+	def getString(self):
+		"""Return a simple string for the function represented by the tree"""
+		return self.root._evalString()
+	
+	def getLatex(self):
+		"""Return LaTeX markup for the function represented by the tree"""
+		return self.root._evalLatex()
+	
+	def getNodes(self):
+		"""Return a list of all of the nodes in the tree"""
+		return self.root._evalNodes()
+	
+	def getTermini(self):
+		"""Return the terminal nodes in the tree"""
+		return [x for x in self.getNodes() if isinstance(x, DataNode)]
 						
 	
 class AlgorithmTreeTests(unittest.TestCase):
@@ -312,7 +328,6 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
 		print tree
 		
 	def testGraph(self):
@@ -333,8 +348,7 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
-		draw(tree.graph)
+		draw(tree.getGraph())
 		pylab.show()
 		
 	def testClean(self):
@@ -355,12 +369,121 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
+		print 'Tree before node cleaning:'
+		print tree
 		root.setChildren(DataNode(), None)
+#		tree.nodesHaveChanged()
 		node1.clean()
-		tree()
-		draw(tree.graph)
+		print 'Tree after node cleaning:'
+		print tree
+		draw(tree.getGraph())
 		pylab.show()
+	
+	def testCopyDataNode(self):
+		print "\n----- testing copy() of data node -----"
+		dNode = DataNode(self.methodFactory.getData('pi'))
+		# do a copy
+		newDataNode = dNode.copy()
+		# compare addresses
+		self.assertNotEquals(id(dNode),id(newDataNode))
+		# set the original to None
+		dNode = None
+		# original should be None but copy should not
+		self.assertEquals(dNode,None)
+		self.assertNotEquals(newDataNode,None)
+		
+	def testCopyUnaryNode(self):
+		print "\n----- testing copy() of unary node -----"
+		# make a unary node with a data child
+		uNode = UnaryNode(self.methodFactory.getUnary('exp'))
+		dNode = DataNode(self.methodFactory.getData('pi'))
+		uNode.setChildren(dNode)
+		# copy the unary node
+		newUNode = uNode.copy()
+		# check addresses
+		self.assertNotEquals(id(uNode),id(newUNode))
+		self.assertNotEquals(id(uNode.getChildren()[0]),id(newUNode.getChildren()[0]))
+		
+	def testCopyBinaryNode(self):
+		print "\n----- testing copy() of binary node -----"
+		# make a binary node with data children
+		bNode = BinaryNode(self.methodFactory.getBinary('+'))
+		dNode1 = DataNode(self.methodFactory.getData('pi'))
+		dNode2 = DataNode(self.methodFactory.getData('1'))
+		bNode.setChildren(dNode1,dNode2)
+		# copy the node
+		newBNode = bNode.copy()
+		self.assertNotEquals(id(newBNode),id(bNode))
+		self.assertNotEquals(id(newBNode.getChildren()[0]),id(bNode.getChildren()[0]))
+		self.assertNotEquals(id(newBNode.getChildren()[1]),id(bNode.getChildren()[1]))
+		
+	def testRecursiveCopy(self):
+		print "\n----- testing recursive copy() -----"
+		# make a small subtree (no root, just linked nodes)
+		uNode1 = UnaryNode(self.methodFactory.getUnary('exp'))
+		uNode2 = UnaryNode(self.methodFactory.getUnary('tanh'))
+		dNode = DataNode(self.methodFactory.getData('pi'))
+		uNode1.setChildren(uNode2)
+		uNode2.setChildren(dNode)
+		# copy uNode1
+		newUNode = uNode1.copy()
+		print 'Original subtree: ', uNode1,uNode1.getChildren()[0],uNode1.getChildren()[0].getChildren()[0]
+		print 'Copied subtree: ', newUNode,newUNode.getChildren()[0],newUNode.getChildren()[0].getChildren()[0]
+		# check addresses
+		self.assertNotEquals(id(uNode1),id(newUNode))
+		self.assertNotEquals(id(newUNode.getChildren()[0]),id(uNode2))
+		self.assertNotEquals(id(newUNode.getChildren()[0].getChildren()[0]),id(dNode))
+		
+	def testTreeCopy(self):
+		print "\n----- testing recursive copy() of algorithm tree -----"
+		root = BinaryNode(self.methodFactory.getBinary('/'))
+		node1 = UnaryNode(self.methodFactory.getUnary('exp'))
+		node2 = UnaryNode(self.methodFactory.getUnary('log'))
+		node3 = UnaryNode(self.methodFactory.getUnary('sin'))
+		node4 = UnaryNode(self.methodFactory.getUnary('log'))
+		# immutable data - stored
+		constant1 = DataNode(self.methodFactory.getData('pi'))
+		constant2 = DataNode(self.methodFactory.getData('1'))
+		tree = AlgorithmTree(root)
+		root.setChildren(node1, node2)
+		node1.setChildren(node3)
+		node3.setChildren(node4)
+		node2.setChildren(constant1)
+		node4.setChildren(constant2)
+		#tree()
+		print "Original tree (node,id): "
+		print [(n.string,id(n)) for n in tree.getNodes()]
+		print "Root, root header value:", tree.root,tree.root.getHeader()
+		newTree = tree.copy()
+		root.clean()
+		#newTree()
+		print "Copy tree (node,id): "
+		print [(n.string,id(n)) for n in newTree.getNodes()]
+		print "Root, root header value:", newTree.root,newTree.root.getHeader()
+		
+	def testStateVariable(self):
+		print "\n----- testing state variable for node updates  -----"
+		root = ScalarNode(self.methodFactory.getScalar('tr'))
+		node1 = BinaryNode(self.methodFactory.getBinary('-'))
+		# immutable data - stored
+		constant1 = DataNode(self.methodFactory.getData('e'))
+		constant2 = DataNode(self.methodFactory.getData('pi'))
+		tree = AlgorithmTree(root)
+		root.setChildren(node1)
+		node1.setChildren(constant1,constant2)
+		# save some old tree data
+		oldString = tree.getString()
+		oldFunction = tree.getFunction()
+		oldLatex = tree.getLatex()
+		# stick a new node in there
+		newNode = BinaryNode(self.methodFactory.getBinary('*'))
+		root.setChildren(newNode,None)
+		newNode.setChildren(constant1,constant2)
+		node1.clean()
+		# tree has been updated, so old evals are invalid
+		self.assertNotEquals(tree.getString(),oldString)
+		self.assertNotEquals(tree.getLatex(),oldLatex)
+		self.assertNotEquals(tree.getFunction(),oldFunction)
 
 		
 if __name__ == '__main__':

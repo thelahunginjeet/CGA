@@ -48,9 +48,15 @@ class DataMethodFactory(dict):
 		
 		# the scalarizing functions
 		self.scalars = {}
-		self.scalars['tr'] = ("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', DataMethodFactory.nantrace)
-		self.scalars['sum_ij'] = ("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', DataMethodFactory.dsum)
+		self.scalars['tr'] = ("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', self.nantrace)
+		self.scalars['sum_ij'] = ("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', self.dsum)
 		self.SCALARS = len(self.scalars)
+		
+		# reverse dicts (wait for it . . . ah) for accessing by .string
+		self.atad = dict((self.data[k][0],k) for k in self.data)
+		self.yranu = dict((self.unary[k][0],k) for k in self.unary)
+		self.yranib = dict((self.binary[k][0],k) for k in self.binary)
+		self.sralacs = dict((self.scalars[k][0],k) for k in self.scalars)
 
 	@staticmethod
 	def random(dictionary, size):
@@ -67,22 +73,31 @@ class DataMethodFactory(dict):
 		
 	def getData(self, name=None):
 		"""Method to return a named data element or if None a random data element"""
-		return DataMethodFactory.randomDF(name, self.data, self.DATA)
+		if name in self.data or name is None:
+			return DataMethodFactory.randomDF(name, self.data, self.DATA)
+		return DataMethodFactory.randomDF(self.atad[name], self.data, self.DATA)
 	
 	def getUnary(self, name=None):
 		"""Method to return a named unary operator or if None a random unary operator"""
-		return DataMethodFactory.randomDF(name, self.unary, self.UNARY)
+		if name in self.unary or name is None:
+			return DataMethodFactory.randomDF(name, self.unary, self.UNARY)
+		return DataMethodFactory.randomDF(self.yranu[name], self.unary, self.UNARY)
 	
 	def getBinary(self, name=None):
 		"""Method to return a named binary operator or if None a random binary operator"""
-		return DataMethodFactory.randomDF(name, self.binary, self.BINARY)
+		if name in self.binary or name is None:
+			return DataMethodFactory.randomDF(name, self.binary, self.BINARY)
+		return DataMethodFactory.randomDF(self.yranib[name], self.binary, self.BINARY)
 
 	def getScalar(self, name=None):
 		"""Method to return a named scalarizing operator or if None a random scalarizing operator"""
-		return DataMethodFactory.randomDF(name, self.scalars, self.SCALARS)
+		if self.scalars.has_key(name) or name is None:
+			return DataMethodFactory.randomDF(name, self.scalars, self.SCALARS)
+		return DataMethodFactory.randomDF(self.sralacs[name], self.scalars, self.SCALARS)
+	
 
 	@staticmethod
-	def nantrace(self, x):
+	def nantrace(x):
 		# nan compatible trace
 		try:
 			y = MATH.nansum(x.diagonal())
@@ -91,8 +106,8 @@ class DataMethodFactory(dict):
 		return y
 
 	@staticmethod
-	def dsum(self, x):
-		# nan compatible sub of the elements of a matrix
+	def dsum(x):
+		# nan compatible sum of the elements of a matrix
 		try:
 			y = MATH.nansum(x)
 		except IndexError:
@@ -110,6 +125,54 @@ class CGAFunctionsTests(unittest.TestCase):
 		self.assertEquals(self.methodFactory.getScalar('tr').string, 'tr(%s)')
 		self.assertEquals(self.methodFactory.getUnary('log').string, 'log(%s)')
 		self.assertEquals(self.methodFactory.getBinary('+').string, '(%s+%s)')
+		
+	def testFunctions(self):
+		print "\n----- testing function evaluation -----"
+		mynansum = self.methodFactory.getScalar('sum_ij')
+		mynantrace = self.methodFactory.getScalar('tr')
+		mylog = self.methodFactory.getUnary('log')
+		mysum = self.methodFactory.getBinary('+')
+		self.assertAlmostEquals(0.0,mylog.function(1.0))
+		self.assertAlmostEquals(2.0,mysum.function(1.0,1.0))
+		self.assertAlmostEquals(2.0,mynansum.function([1.0,MATH.nan,1.0,MATH.nan]))
+		self.assertAlmostEquals(2.0,mynansum.function(MATH.eye(2)))
+	
+	def testReverseAccess(self):
+		print "\n----- testing reverse dictionary access -----"
+		N = 10
+		for i in range(N):
+			binary = self.methodFactory.getBinary()
+			binary2 = self.methodFactory.getBinary(binary.string)
+			if binary.string == binary2.string:
+				self.assertEquals((binary.string, binary.latex, binary.function), (binary.string, binary.latex, binary.function))
+			else:	
+				self.assertNotEquals((binary.string, binary.latex, binary.function), (binary.string, binary.latex, binary.function))
+			self.assertNotEquals(binary, binary2)
+		for i in range(N):
+			unary = self.methodFactory.getUnary()
+			unary2 = self.methodFactory.getUnary(unary.string)
+			if unary.string == unary2.string:
+				self.assertEquals((unary.string, unary.latex, unary.function), (unary.string, unary.latex, unary.function))
+			else:
+				self.assertNotEquals((unary.string, unary.latex, unary.function), (unary.string, unary.latex, unary.function))
+			self.assertNotEquals(unary, unary2)
+		for i in range(N):
+			data = self.methodFactory.getData()
+			data2 = self.methodFactory.getData(data.string)
+			if data.string == data2.string:
+				self.assertEquals((data.string, data.latex, data.function), (data.string, data.latex, data.function))
+			else:				
+				self.assertNotEquals((data.string, data.latex, data.function), (data.string, data.latex, data.function))	
+			self.assertNotEquals(data, data2)
+		for i in range(N):
+			scalar = self.methodFactory.getScalar()
+			scalar2 = self.methodFactory.getScalar(scalar.string)
+			if scalar.string == scalar2.string:
+				self.assertEquals((scalar.string, scalar.latex, scalar.function), (scalar.string, scalar.latex, scalar.function))
+			else:
+				self.assertNotEquals((scalar.string, scalar.latex, scalar.function), (scalar.string, scalar.latex, scalar.function))
+			self.assertNotEquals(scalar, scalar2)
+
 	
 if __name__ == '__main__':
 	unittest.main()

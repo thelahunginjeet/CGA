@@ -16,7 +16,7 @@ def run_cga():
     dataBaseFileName = '../tests/pdz_test.db'
     pdbFileName = '../tests/1iu0.pdb'
     # how many generations to run for?
-    nGen = 50
+    nGen = 100
     # set up a simulation
     mySim = CGASimulation.CGASimulation(databaseFile=dataBaseFileName, pdbFile=pdbFileName, forestSize=30)
      # create and attach a DataLogger

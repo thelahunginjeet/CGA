@@ -107,10 +107,8 @@ class ScalarNode(Node):
 		
 	def _evalFunction(self):
 		leval = self.left._evalFunction()
-		if leval is None:
-			return None
-		else:
-			return self.function(leval)
+		assert leval is not None
+		return self.function(leval)
 		
 	def _evalString(self):
 		return self.string % (self.left._evalString())
@@ -249,66 +247,52 @@ class BinaryNode(Node):
 			
 	
 class AlgorithmTree(object):
-	"""General tree structure for recursion"""
+	"""General tree structure for recursion.  Tree members (function, graph, string, latex) that are
+	assembled from the constituent nodes are retrieved using the respective getter"""
 	def __init__(self, root):
 		self.root = root
 		self.root.setHeader(True)
 		self.root.setIdentity(0)
-		self.graph = Graph()
-		self.update()
 	
 	def __call__(self):
-		"""Make the tree callable to evaluate expressions"""
-		self.update()
-		self.evaluateFunction()
-		self.evaluateString()
-		self.evaluateLatex()
-		self.evaluateGraph()
-	
+		"""Print the current tree fully evaluated"""
+		print self
+		
 	def __repr__(self):
-		"""String representation a tree."""
-		self()	# make sure the tree is evaluated first
+		"""String representation of a tree."""
 		output = "function eval : %s\nstring eval : %s\nLaTeX eval : %s\nEdges eval : %s" \
-			%(self.function, self.string, self.latex, self.graph.edges())
+			%(self.getFunction(), self.getString(), self.getLatex(), self.getGraph().edges())
 		return output
 	
-	def update(self):
-		"""General function to update any properties"""
-		self.evaluateNodes()
-		self.evaluateString()
-		self.evaluateLatex()
-		self.evaluateFunction()
-		self.evaluateGraph()			
-	
-	# might need to simply have getters to return things like the terminii so that update isn't always called
-	def evaluateNodes(self):
-		"""Recurse the tree and return a list of all of the nodes in the tree"""
-		self.nodes = self.root._evalNodes()
-		self.termini = [x for x in self.nodes if isinstance(x, DataNode)]
-		
 	def copy(self):
 		"""Recursive copy of the entire tree; returns a tree."""
-		newTree = AlgorithmTree(self.root.copy())
-		return newTree
-		
-	def evaluateFunction(self):
-		"""Recurse the tree and evaluate the function; if there are still empty nodes in
-		the tree, this will be meaningless."""
-		self.function = self.root._evalFunction()			
-		
-	def evaluateString(self):
-		"""Recurse the tree and evaluate the string expression"""
-		self.string = self.root._evalString()
+		return AlgorithmTree(self.root.copy())
 	
-	def evaluateLatex(self):
-		"""Recurse the tree and evaluate the LaTeX expression"""
-		self.latex = self.root._evalLatex()
-		
-	def evaluateGraph(self):
-		"""Clears the current graph, recurses the tree to get the edgelist, and then 
-		returns the graph composed of those edges."""
-		self.graph.clear()
-		self.graph.add_edges_from(self.root._evalEdges())
+	def getGraph(self):
+		"""Return a networkx graph for the trees"""
+		graph = Graph()
+		graph.add_edges_from(self.root._evalEdges())
+		return graph
+	
+	def getFunction(self):
+		"""Return the function evaluation of the tree"""
+		return self.root._evalFunction()
+	
+	def getString(self):
+		"""Return a simple string for the function represented by the tree"""
+		return self.root._evalString()
+	
+	def getLatex(self):
+		"""Return LaTeX markup for the function represented by the tree"""
+		return self.root._evalLatex()
+	
+	def getNodes(self):
+		"""Return a list of all of the nodes in the tree"""
+		return self.root._evalNodes()
+	
+	def getTermini(self):
+		"""Return the terminal nodes in the tree"""
+		return [x for x in self.getNodes() if isinstance(x, DataNode)]
 						
 	
 class AlgorithmTreeTests(unittest.TestCase):
@@ -344,7 +328,6 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
 		print tree
 		
 	def testGraph(self):
@@ -365,8 +348,7 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
-		draw(tree.graph)
+		draw(tree.getGraph())
 		pylab.show()
 		
 	def testClean(self):
@@ -387,15 +369,14 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree()
 		print 'Tree before node cleaning:'
 		print tree
 		root.setChildren(DataNode(), None)
+#		tree.nodesHaveChanged()
 		node1.clean()
-		tree()
 		print 'Tree after node cleaning:'
 		print tree
-		draw(tree.graph)
+		draw(tree.getGraph())
 		pylab.show()
 	
 	def testCopyDataNode(self):
@@ -469,19 +450,41 @@ class AlgorithmTreeTests(unittest.TestCase):
 		node3.setChildren(node4)
 		node2.setChildren(constant1)
 		node4.setChildren(constant2)
-		tree.update()
-		tree()
+		#tree()
 		print "Original tree (node,id): "
-		print [(n.string,id(n)) for n in tree.nodes]
+		print [(n.string,id(n)) for n in tree.getNodes()]
 		print "Root, root header value:", tree.root,tree.root.getHeader()
 		newTree = tree.copy()
 		root.clean()
-		newTree.update()
-		newTree()
+		#newTree()
 		print "Copy tree (node,id): "
-		print [(n.string,id(n)) for n in newTree.nodes]
+		print [(n.string,id(n)) for n in newTree.getNodes()]
 		print "Root, root header value:", newTree.root,newTree.root.getHeader()
 		
+	def testStateVariable(self):
+		print "\n----- testing state variable for node updates  -----"
+		root = ScalarNode(self.methodFactory.getScalar('tr'))
+		node1 = BinaryNode(self.methodFactory.getBinary('-'))
+		# immutable data - stored
+		constant1 = DataNode(self.methodFactory.getData('e'))
+		constant2 = DataNode(self.methodFactory.getData('pi'))
+		tree = AlgorithmTree(root)
+		root.setChildren(node1)
+		node1.setChildren(constant1,constant2)
+		# save some old tree data
+		oldString = tree.getString()
+		oldFunction = tree.getFunction()
+		oldLatex = tree.getLatex()
+		# stick a new node in there
+		newNode = BinaryNode(self.methodFactory.getBinary('*'))
+		root.setChildren(newNode,None)
+		newNode.setChildren(constant1,constant2)
+		node1.clean()
+		# tree has been updated, so old evals are invalid
+		self.assertNotEquals(tree.getString(),oldString)
+		self.assertNotEquals(tree.getLatex(),oldLatex)
+		self.assertNotEquals(tree.getFunction(),oldFunction)
+
 		
 if __name__ == '__main__':
 	unittest.main()

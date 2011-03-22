@@ -74,6 +74,7 @@ class CGAGenerator(object):
 				-GC should be OK here;  parents and children for the oldNode are set to None before
 					refcount decrement, so no external references should linger."""
 		assert type(oldNode) is type(newNode)
+		# MIGHT NEED TO USE A .COPY() METHOD HERE TO INSURE POINTER INDEPENDENCE
 		childLeft, childRight = oldNode.getChildren()
 		if oldNode.getHeader():
 			newNode.setHeader(True)
@@ -87,6 +88,7 @@ class CGAGenerator(object):
 		newNode.setIdentity(oldNode.getIdentity())
 		newNode.setChildren(childLeft, childRight)
 		# DO NOT USE .clean() HERE!  IT WILL None NODES TOO FAR DOWN IN THE TREE
+#		oldNode.clean()
 		oldNode.parent = None
 		oldNode.setChildren(None,None)
 
@@ -103,7 +105,7 @@ class CGAGenerator(object):
 			return None
 		oneIdentity, twoIdentity = nodeOne.getIdentity(), nodeTwo.getIdentity()
 		# make copies of the subtrees to cut in
-		tmpOne, tmpTwo = nodeOne.copy(),nodeTwo.copy()
+		tmpOne, tmpTwo = nodeOne.copy(), nodeTwo.copy()
 		tmpOne.parent, tmpTwo.parent = None, None
 		if oneIdentity:  # one right
 			nodeOne.parent.setChildren(None, tmpTwo)
@@ -117,8 +119,7 @@ class CGAGenerator(object):
 				nodeTwo.parent.setChildren(None, tmpOne)
 			else:  # two left
 				nodeTwo.parent.setChildren(tmpOne, None)
-		nodeOne.parent = None
-		nodeTwo.parent = None
+		nodeOne.parent, nodeTwo.parent = None, None
 		nodeOne.clean()
 		nodeTwo.clean()
 											
@@ -135,8 +136,7 @@ class CGAGenerator(object):
 		root = ScalarNode(CGAFunctions.DataMethodFactory().getScalar())
 		tree = AlgorithmTree(root)
 		while number > 0:
-			tree.update()
-			tNode = random.choice(tree.termini)
+			tNode = random.choice(tree.getTermini())
 			fNode = CGAGenerator._getRandomFunctionalNode()
 			CGAGenerator._extend(tNode,fNode)
 			number -= 1
@@ -150,8 +150,7 @@ class CGAGenerator(object):
 		tree = AlgorithmTree(root)
 		extend = True
 		while extend:
-			tree.update()
-			tNode = random.choice([x for x in tree.termini])
+			tNode = random.choice(tree.getTermini())
 			fNode = CGAGenerator._getRandomFunctionalNode()
 			CGAGenerator._extend(tNode,fNode)
 			if uniform() < p:
@@ -163,7 +162,6 @@ class CGAGenerator(object):
 	@staticmethod
 	def point_mutate(tree,node):
 		"""Replaces node with a random node of the same type."""
-		tree.update()		
 		if isinstance(node, UnaryNode):
 			newNode = UnaryNode(CGAFunctions.DataMethodFactory().getUnary())
 		elif isinstance(node, DataNode):
@@ -175,45 +173,36 @@ class CGAGenerator(object):
 		else:
 			raise TypeError, "there seems to be a mystery node; try again . . ."
 		CGAGenerator._replace(tree, node, newNode)
-		tree.update()
 		
 	@staticmethod
-	def prune(tree,node):
+	def prune(tree, node):
 		"""Accepts one input tree and removes the subtree rooted at node; node is replaced with a terminal 
 		data node, so the tree remains evaluateable.  If the node chosen is a data node or the root,
 		nothing will be done - the tree will be unmodified."""
-		tree.update()
 		if type(node) is DataNode:
 			pass
 		else:
 			CGAGenerator._delete(node)
-		tree.update()
 		
 	@staticmethod
-	def grow(tree,tNode):
+	def grow(tree, tNode):
 		"""Takes an input tree and extends it by changing node into a new (random) Unary or 
 		Binary node.  New random data nodes are added as terminal leaves."""
 		assert type(tNode) is DataNode
-		tree.update()
 		fNode = CGAGenerator._getRandomFunctionalNode()
 		CGAGenerator._extend(tNode, fNode)
-		tree.update()
 		
 	@staticmethod
-	def single_crossover(treeOne,nodeOne,treeTwo,nodeTwo):
+	def single_crossover(nodeOne, nodeTwo):
 		"""Takes two input trees and swaps the subtrees rooted in nodeOne, nodeTwo respectively.
 		So after this operation:
 			treeOne's nodeOne subtree = treeTwo's nodeTwo subtree
 			treeTwo's nodeTwo subtree = treeOne's nodeOne subtree.
 		If either nodeOne or nodeTwo are their respective tree's root, the crossover will not be performed."""
-		treeOne.update()
-		treeTwo.update()
 		if nodeOne.getHeader() or nodeTwo.getHeader():
 			pass
 		else:	
 			CGAGenerator._swap(nodeOne, nodeTwo)
-			treeOne.update()
-			treeTwo.update()
 
 
 class CGAGeneratorTests(unittest.TestCase):
@@ -227,7 +216,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		# immutable data - stored
 		self.constant1 = DataNode(self.methodFactory.getData('e'))
 		self.constant2 = DataNode(self.methodFactory.getData('pi'))
-		self.constant3 = DataNode(self.methodFactory.getData('1'))
+		self.constant3 = DataNode(self.methodFactory.getData('1/N'))
 		# set up the tree
 		self.testTree = AlgorithmTree(self.root)
 		self.root.setChildren(self.node1)
@@ -237,81 +226,56 @@ class CGAGeneratorTests(unittest.TestCase):
 		
 	def testExtend(self):
 		print "\n\n----- testing extension -----"
-		self.testTree.update()
-		self.testTree()
 		print 'Tree before extension (node,id): '
-		print [(n.string,id(n)) for n in self.testTree.nodes]
 		self.testTree()
 		newNode = BinaryNode(self.methodFactory.getBinary('*'))
 		CGAGenerator._extend(self.constant1,newNode)
 		print 'Tree after extension (node,id): '
-		self.testTree.update()
 		self.testTree()
-		print [(n.string,id(n)) for n in self.testTree.nodes]
 		
 	def testGrow(self):
 		print "\n\n----- testing grow(tree,tNode) -----"
-		self.testTree.update()
-		self.testTree()
 		print "Tree before extension (node,id): "
-		print [(n.string,id(n)) for n in self.testTree.nodes]
-		CGAGenerator.grow(self.testTree,self.constant2)
-		self.testTree.update()
 		self.testTree()
+		CGAGenerator.grow(self.testTree,self.constant2)
 		print "Tree after extension (node,id): "
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 		
 	def testDelete(self):
 		print "\n\n----- testing deletion -----"
-		self.testTree.update()
-		self.testTree()
 		print 'Tree before deletion (node, id): '
-		print [(n.string,id(n)) for n in self.testTree.nodes]
-		CGAGenerator._delete(self.node2)
-		self.testTree.update()
 		self.testTree()
+		CGAGenerator._delete(self.node2)
 		print 'Tree after deletion (node, id): '
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 	
 	def testPrune(self):
 		print "\n\n----- testing prune(tree,node) -----"
-		self.testTree.update()
-		self.testTree()
 		print "Tree before pruning (node,id): "
-		print [(n.string,id(n)) for n in self.testTree.nodes]
-		CGAGenerator.prune(self.testTree,self.node3)
-		self.testTree.update()
 		self.testTree()
+		CGAGenerator.prune(self.testTree,self.node3)
 		print "Tree after pruning (node,id): "
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 		
 	def testNonRootReplace(self):
 		print "\n\n----- testing non-root replacement -----"
-		self.testTree.update()
-		self.testTree()
 		print 'Tree before replacement (node,id): '
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 		newNode = BinaryNode(self.methodFactory.getBinary('*'))
 		CGAGenerator._replace(self.testTree, self.node1, newNode)
-		self.testTree.update()
-		self.testTree()
 		print 'Tree after replacement (node,id): '
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 	
 	def testRootReplace(self):
 		print "\n\n----- testing replacement of root node -----"
-		self.testTree.update()
-		self.testTree()
 		print 'Tree before root replacement (node,id): '
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 		print 'Root : ', self.testTree.root
 		print 'Root header : ', self.testTree.root.getHeader()
 		newNode = ScalarNode(self.methodFactory.getScalar('tr'))
 		CGAGenerator._replace(self.testTree,self.testTree.root,newNode)
-		self.testTree.update()
-		self.testTree()
 		print 'Tree after root replacement (node, id): '
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 		print 'Root : ', self.testTree.root
 		print 'Root header : ', self.testTree.root.getHeader()
 		
@@ -326,28 +290,20 @@ class CGAGeneratorTests(unittest.TestCase):
 		root.setChildren(node1)
 		node1.setChildren(node2)
 		node2.setChildren(constant1,constant2)
-		self.testTree.update()
-		self.testTree()
-		tree.update()
-		tree()
 		print 'Trees before the swap (node,id): '
 		print 'Tree One:'
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()		
 		print 'Tree Two:'
-		print [(n.string,id(n)) for n in tree.nodes]
-		CGAGenerator._swap(self.node2,node1)
-		self.testTree.update()
-		self.testTree()
-		tree.update()
 		tree()
+		CGAGenerator._swap(self.node2, node1)
 		print 'Trees after the swap (node,id): '
 		print 'Tree One:'
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 		print 'Tree Two:'
-		print [(n.string,id(n)) for n in tree.nodes]
+		tree()
 	
 	def testCrossover(self):
-		print "\n\n----- testing single_crossover(tree1,tree1Node,tree2,tree2Node) -----"
+		print "\n\n----- testing single_crossover(tree1Node, tree2Node) -----"
 		root = ScalarNode(self.methodFactory.getScalar('tr'))
 		node1 = UnaryNode(self.methodFactory.getUnary('log'))
 		node2 = BinaryNode(self.methodFactory.getBinary('*'))
@@ -357,64 +313,44 @@ class CGAGeneratorTests(unittest.TestCase):
 		root.setChildren(node1)
 		node1.setChildren(node2)
 		node2.setChildren(constant1,constant2)
-		self.testTree.update()
-		self.testTree()
-		tree.update()
-		tree()
 		print 'Trees before the swap (node,id): '
 		print 'Tree One:'
-		print [(n.string,id(n)) for n in self.testTree.nodes]
-		print 'Tree Two:'
-		print [(n.string,id(n)) for n in tree.nodes]
-		CGAGenerator.single_crossover(self.testTree,self.node2,tree,node1)
-		self.testTree.update()
 		self.testTree()
-		tree.update()
+		print 'Tree Two:'
 		tree()
+		CGAGenerator.single_crossover(self.node2, node1)
 		print 'Trees after the swap (node,id): '
 		print 'Tree One:'
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 		print 'Tree Two:'
-		print [(n.string,id(n)) for n in tree.nodes]
+		tree()
 		
 	def testGenerate(self):
 		print "\n\n----- testing generate(tree) -----"
 		tree = CGAGenerator.generate(3)
 		tree()		
-		print tree
 	
 	def testExpGenerate(self):
 		print "\n\n----- testing expgenerate(tree) -----"
 		tree = CGAGenerator.expgenerate(0.85)
 		tree()
-		print tree
 	
 	def testPointMutate(self):
 		print "\n\n----- testing point_mutate(tree,node) -----"
-		self.testTree.update()
-		self.testTree()
 		print "Tree before mutation (node,id): "
-		print [(n.string,id(n)) for n in self.testTree.nodes]
-		CGAGenerator.point_mutate(self.testTree,random.choice(self.testTree.nodes))
-		self.testTree.update()
 		self.testTree()
+		CGAGenerator.point_mutate(self.testTree,random.choice(self.testTree.getNodes()))
 		print "Tree after mutation (node,id): "
-		print [(n.string,id(n)) for n in self.testTree.nodes]
+		self.testTree()
 
 	def testRepeatedPointMutate(self):
 		print "\n\n----- testing repeated runs of point_mutate(tree,node) -----"
-		self.testTree.update()
-		self.testTree()
 		print "Tree before mutation (node,id): "
-		print [(n.string,id(n)) for n in self.testTree.nodes]
-		for i in xrange(0,10000):
-			CGAGenerator.point_mutate(self.testTree,random.choice(self.testTree.nodes))
-			self.testTree.update()
-		self.testTree.update()
 		self.testTree()
+		for i in xrange(0,10000):
+			CGAGenerator.point_mutate(self.testTree, random.choice(self.testTree.getNodes()))
 		print "Tree after mutation (node,id): "
-		print [(n.string,id(n)) for n in self.testTree.nodes]
-	
+		self.testTree()
 		
 		
 if __name__ == '__main__':

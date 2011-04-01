@@ -16,7 +16,7 @@ def run_cga():
     dataBaseFileName = '../tests/pdz_test.db'
     pdbFileName = '../tests/1iu0.pdb'
     # how many generations to run for?
-    nGen = 100
+    nGen = 500
     # set up a simulation
     mySim = CGASimulation.CGASimulation(databaseFile=dataBaseFileName, pdbFile=pdbFileName, forestSize=30)
      # create and attach a DataLogger
@@ -26,6 +26,7 @@ def run_cga():
     mySim.populate(treetype='fixed')
     # now start running and logging data
     for n in range(0, nGen):
+        print "working on generation : %d"%(n)
         mySim.advance()
     # plot some stuff
     pylab.subplot(221)

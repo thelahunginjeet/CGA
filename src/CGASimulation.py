@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
-import unittest, os, time, copy
+import unittest, os, time
 from scipy import mean,log
 import numpy as MATH
 from numpy.random import rand as urand
 from random import choice as rchoice
 from CGAPreprocessing import Utilities
-from CGAStructures import AlgorithmTree
 from CGAGenerator import CGAGenerator
-from CGALogging import Subject, Observer, DataLogger
+from CGALogging import Subject, DataLogger
 
 # TODO : 
 #  - write the simulation as a generator
@@ -108,7 +107,7 @@ class CGASimulation(Subject):
         # now obtain the offspring, two at a time
         offspring = []
         for i in xrange(0, self.forestSize, 2):
-            offspring += self.mate(rchoice(parents),rchoice(parents))
+            offspring += self.mate(rchoice(parents), rchoice(parents))
         # overwrite current forest
         self.population = offspring
         # a few things we want to save

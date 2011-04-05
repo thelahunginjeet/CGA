@@ -4,7 +4,11 @@
 accept and pass through kwargs dicts so that the observers do not need to know the subject's attributes and you can 
 update dictionaries of data based on key/value pairs.'''
 
-import types,unittest
+
+import types, unittest, numpy
+from hashlib import md5 
+from CGAFunctions import DataMethodFactory
+
 
 class Subject(object):
     '''Standard observer pattern, but I have modified notify to accept a kwargs dict; the update() function doesn't
@@ -13,17 +17,17 @@ class Subject(object):
     def __init__(self):
         self._observers = []
     
-    def attach(self,observer):
+    def attach(self, observer):
         if not observer in self._observers:
             self._observers.append(observer)
             
-    def detach(self,observer):
+    def detach(self, observer):
         try:
             self._observers.remove(observer)
         except ValueError:
             pass
     
-    def notify(self,modifier=None,**kwargs):
+    def notify(self, modifier=None, **kwargs):
         for observer in self._observers:
             if modifier != observer:
                 observer.update(self,**kwargs)
@@ -37,11 +41,10 @@ class Observer(object):
     def __init__(self):
         pass
 
-    def update(self,subject,**kwargs):
+    def update(self, subject, **kwargs):
         pass
 
     
-
 class DataLogger(Observer):
     '''The data logger keeps a dict of lists, for example:
             dataLogger.data['time'] = [0,1,2,3,...]
@@ -64,6 +67,50 @@ class DataLogger(Observer):
                 self.data[k].append(kwargs[k])
 
 
+class SqliteLogger(Observer):
+    """This is a logger that uses sqlite3 to log to a database file with the format:
+            INTEGER md5-hash;
+            TEXT function
+            TEXT latex
+            INTEGER generation
+            INTEGER (one for each) f_log, f_+, etc."""
+    
+    def __init__(self, dbFile):
+        assert type(dbFile) is str
+        import sqlite3
+        super(SqliteLogger, self).__init__()
+        self.connection = sqlite3.connect(dbFile)
+        # prepare the variable function columns
+#        self.funcs = sorted(DataMethodFactory().data.keys())
+#        self.funcs += sorted(DataMethodFactory().unary.keys())
+#        self.funcs += sorted(DataMethodFactory().binary.keys())
+#        self.funcs += sorted(DataMethodFacctor().scalars.keys())
+        try:
+            with self.connection:
+                self.connection.execute("""CREATE TABLE IF NOT EXISTS cgafunctions (
+                                                md5 TEXT UNIQUE PRIMARY KEY,
+                                                function TEXT, 
+                                                latex TEXT, 
+                                                generation INTEGER,
+                                                fitness REAL);""")
+        except sqlite3.IntegrityError:
+            print "there was a problem initializing your database . . ."
+                
+                
+    def update(self, subject, **kwargs):
+        print "number of trees : ", len(subject.population)
+        for chromosome in subject.population:
+            tree = chromosome.tree
+            function = "'" + tree.getString() + "'"
+            hash = md5(function).hexdigest()
+            latex = "'" + tree.getLatex() + "'"
+            generation = kwargs['time']
+            fitness = chromosome.fitness
+            values = (hash, function, latex, generation, fitness)
+            self.connection.execute("""INSERT OR REPLACE INTO cgafunctions (md5, function, latex, generation, fitness) VALUES 
+                                        (?, ?, ?, ?, ?)""", values)
+        self.connection.commit()
+        
 
 class CGALoggingTests(unittest.TestCase):
     def setUp(self):
@@ -87,6 +134,12 @@ class CGALoggingTests(unittest.TestCase):
         for k in obs.data.keys():
             print k,obs.data[k]
         self.logMe.detach(obs)
+        
+    def testSqliteLogger(self):
+        obs = SqliteLogger('../tests/test.db')
+        self.logMe.attach(obs)
+        self.logMe.notify()
+        
         
 if __name__ == 'main':
     pass

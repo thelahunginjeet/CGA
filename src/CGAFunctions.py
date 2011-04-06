@@ -22,6 +22,7 @@ class DataMethodFactory(dict):
 		self.data['e'] = ("e", r'e', MATH.e)
 		self.data['pi'] = ("pi", r'\pi', MATH.pi)
 		self.data['1'] = ("1", r'1', 1.0)
+		self.data['-1'] = ("-1", r'-1', -1.0)
 		self.data['1/2'] = ("1/2", r'\frac{1}{2}', 0.5)
 		self.data['1/N'] = ("1/N", r'\frac{1}{N}', 1./20.)
 		self.data['p_i'] = ("p_i", r'\rho_{i}', -1.0)
@@ -40,10 +41,14 @@ class DataMethodFactory(dict):
 
 		# the binary functions
 		self.binary = {}
-		self.binary['+'] = ("(%s+%s)", r'\left(%s+%s\right)', MATH.add)
-		self.binary['-'] = ("(%s-%s)", r'\left(%s-%s\right)', MATH.subtract)
-		self.binary['*'] = ("(%s*%s)", r'%s\dot%s', MATH.multiply)
-		self.binary['/'] = ("(%s/%s)", r'\frac{%s}{%s}', MATH.divide)
+		self.binary['add'] = ("(%s+%s)", r'\left(%s+%s\right)', MATH.add)
+		self.binary['subtract'] = ("(%s-%s)", r'\left(%s-%s\right)', MATH.subtract)
+		self.binary['multiply'] = ("(%s*%s)", r'%s\dot%s', MATH.multiply)
+		self.binary['divide'] = ("(%s/%s)", r'\frac{%s}{%s}', MATH.divide)
+#		self.binary['+'] = ("(%s+%s)", r'\left(%s+%s\right)', MATH.add)
+#		self.binary['-'] = ("(%s-%s)", r'\left(%s-%s\right)', MATH.subtract)
+#		self.binary['*'] = ("(%s*%s)", r'%s\dot%s', MATH.multiply)
+#		self.binary['/'] = ("(%s/%s)", r'\frac{%s}{%s}', MATH.divide)
 		self.BINARY = len(self.binary)
 		
 		# the scalarizing functions

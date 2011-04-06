@@ -111,12 +111,14 @@ class CGASimulation(Subject):
             offspring += self.mate(rchoice(parents), rchoice(parents))
         # overwrite current forest
         self.population = offspring
+
         # a few things we want to save
-        minN = MATH.min([len(k.tree.getNodes()) for k in self.population])
-        maxN = MATH.max([len(k.tree.getNodes()) for k in self.population])
-        maxFit = MATH.nanmax([k.fitness for k in self.population])
-        wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
-        meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
+#        minN = MATH.min([len(k.tree.getNodes()) for k in self.population])
+#        maxN = MATH.max([len(k.tree.getNodes()) for k in self.population])
+#        maxFit = MATH.nanmax([k.fitness for k in self.population])
+#        wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
+#        meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
+        
         # notify dictionary observer
         self.notify(time=self.time)
 #        self.notify(time=self.time, minSize=minN, maxSize=maxN, maxFit=maxFit, wellFormed=wellFormed, meanFit=meanFit)

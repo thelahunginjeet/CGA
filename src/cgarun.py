@@ -26,7 +26,7 @@ def run_cga():
     mySim.populate(treetype='fixed')
     # now start running and logging data
     for n in range(0, nGen):
-        print n
+        print "working on generation : %d"%(n)
         mySim.advance()
     # plot some stuff
 #    pylab.subplot(221)

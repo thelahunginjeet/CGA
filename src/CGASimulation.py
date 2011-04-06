@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 
-import unittest, os, time, copy
+import unittest, os, time
 from scipy import mean,log
 import numpy as MATH
 from numpy.random import rand as urand
 from random import choice as rchoice
 from CGAPreprocessing import Utilities
-from CGAStructures import AlgorithmTree
 from CGAGenerator import CGAGenerator
-from CGALogging import Subject, Observer, DataLogger
+from CGALogging import Subject, DataLogger
 
 # TODO : 
 #  - write the simulation as a generator

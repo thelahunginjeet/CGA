@@ -1,12 +1,8 @@
 README file for CGA project.
 
-branch	: tree-access, feature branch
-purpose : changing the access model for trees and removing heavy usage of update()
+branch	: feature-sqlitedb
+purpose : adding a sqlite database back-end to record functions and other metadata
 
 FEATURES / FIXES:
-	- trees now have getters (getString(), getFunction(), getLatex(), getNodes(), getTerminii()) that
-	  return the current evaluation for the respective attribute.  This gets around the issue of keeping
-	  an instance attribute that has a copy, because those may be out of sync.  Whenever a method needs 
-	  an attribute, it just has to call the appropriate getter.  This also should reduce some of the 
-	  computational overhead.
+	- added a simple sqlite database to record unique functions, generations, etc. 
 

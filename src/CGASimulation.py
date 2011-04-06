@@ -108,17 +108,20 @@ class CGASimulation(Subject):
         # now obtain the offspring, two at a time
         offspring = []
         for i in xrange(0, self.forestSize, 2):
-            offspring += self.mate(rchoice(parents),rchoice(parents))
+            offspring += self.mate(rchoice(parents), rchoice(parents))
         # overwrite current forest
         self.population = offspring
+
         # a few things we want to save
-        minN = MATH.min([len(k.tree.getNodes()) for k in self.population])
-        maxN = MATH.max([len(k.tree.getNodes()) for k in self.population])
-        maxFit = MATH.nanmax([k.fitness for k in self.population])
-        wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
-        meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
+#        minN = MATH.min([len(k.tree.getNodes()) for k in self.population])
+#        maxN = MATH.max([len(k.tree.getNodes()) for k in self.population])
+#        maxFit = MATH.nanmax([k.fitness for k in self.population])
+#        wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
+#        meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
+        
         # notify dictionary observer
-        self.notify(time=self.time, minSize=minN, maxSize=maxN, maxFit=maxFit, wellFormed=wellFormed, meanFit=meanFit)
+        self.notify(time=self.time)
+#        self.notify(time=self.time, minSize=minN, maxSize=maxN, maxFit=maxFit, wellFormed=wellFormed, meanFit=meanFit)
         # advance time
         self.time += 1
         

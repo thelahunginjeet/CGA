@@ -13,14 +13,14 @@ import pylab
 
 def run_cga():
     # which db and pdb file to use?
-    dataBaseFileName = '../tests/pdz_test.db'
+    proteinDBFileName = '../tests/pdz_test.db'
     pdbFileName = '../tests/1iu0.pdb'
     # how many generations to run for?
     nGen = 10
     # set up a simulation
-    mySim = CGASimulation.CGASimulation(databaseFile=dataBaseFileName, pdbFile=pdbFileName, forestSize=30)
+    mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName, forestSize=30)
      # create and attach a DataLogger
-    dataLogger = CGALogging.SqliteLogger('../tests/test.db')
+    dataLogger = CGALogging.SqliteLogger('../tests/sqlitetest.db')
     mySim.attach(dataLogger)
     # generate an initial population (default will be exponentially distributed tree sizes
     mySim.populate(treetype='fixed')

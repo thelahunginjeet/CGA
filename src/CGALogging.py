@@ -68,7 +68,8 @@ class DataLogger(Observer):
 
 
 class SqliteLogger(Observer):
-    """This is a logger that uses sqlite3 to log to a database file with the format:
+    """This is a logger that uses sqlite3 to log to a database file two tables.  The first
+    is called 'cgafunctions' and has the format:
             TEXT function
             TEXT latex
             INTEGER generation
@@ -77,7 +78,19 @@ class SqliteLogger(Observer):
             REAL meanFitness
             REAL maxFitness 
                 + number of function/data nodes per type (e.g. INTEGER f_log)
-        The functions and attributes are stored in a table called cgafunctions"""
+    'cgafunctions' is updated/added to during the run. The second table, which stores 
+    simulation parameters (only logged at the beginning, never updated) is called
+    'cgaruns' and has format:
+            REAL probGrow
+            REAL probPrune
+            REAL probMutate
+            REAL probCross
+            REAL treePar (interpretation depends on treeType)
+            INTEGER forestSize
+            TEXT treeType
+            TEXT selectionMethod
+            DATE stamp
+    """
     
     
     def __init__(self, dbFile):
@@ -101,9 +114,12 @@ class SqliteLogger(Observer):
             self.COLUMNS += "f_%s, "%(func)
         self.COLUMNS = self.COLUMNS[:-2] + ")" 
         self.QUESTIONS = "(%s)"%(((len(self.forder) + 7)*'?,')[:-1])
+        # this is for the metadata 
+        self.RUNCOLS = "(generation,probGrow,probPrune,probMutate,probCross,treePar,forestSize,treeType,selectionMethod)"
         # fire up the sqlite
         import sqlite3
         self.connection = sqlite3.connect(dbFile)
+        # this is the function table
         try:
             with self.connection:
                 self.connection.execute("""CREATE TABLE IF NOT EXISTS cgafunctions (
@@ -117,12 +133,37 @@ class SqliteLogger(Observer):
                                                 %s);"""%(fcolumns[:-1]))
         except sqlite3.IntegrityError:
             print "there was a problem initializing your database . . ."
-                
+        # metadata table
+        try:
+            with self.connection:
+                # table creation
+                self.connection.execute("""CREATE TABLE IF NOT EXISTS cgaruns (
+                                                generation INTEGER,
+                                                probGrow REAL,
+                                                probPrune REAL,
+                                                probMutate REAL,
+                                                probCross REAL,
+                                                treePar REAL,
+                                                forestSize INTEGER,
+                                                treeType TEXT,
+                                                selectionMethod TEXT);""")
+        except sqlite3.IntegrityError:
+            print "there was a problem initializing your database . . ."
+            
                 
     def update(self, subject, **kwargs):
-        minFit = min([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])
-        meanFit = mean([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])
-        maxFit = max([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])        
+        try:
+            minFit = min([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])
+        except ValueError:
+            minFit = 0.0
+        try:
+            meanFit = mean([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])
+        except ValueError:
+            meanFit = 0.0
+        try:
+            maxFit = max([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])        
+        except ValueError:
+            maxFit = 0.0
         funcs = {}.fromkeys(self.forder)
         for chromosome in subject.population:
             # reset number dictionary
@@ -136,6 +177,10 @@ class SqliteLogger(Observer):
                 funcs[self.funcs[node.string]] += 1
             values = [function, latex, generation, fitness, minFit, meanFit, maxFit] + [funcs[x] for x in self.forder]            
             self.connection.execute("""INSERT OR REPLACE INTO cgafunctions %s VALUES %s"""%(self.COLUMNS, self.QUESTIONS), values)
+        self.connection.commit()
+        # update the cgaruns table
+        runvals = (kwargs['time'],subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['p'],subject.forestSize,subject.treeGenDict['treetype'],subject.selectionMethod)
+        self.connection.execute("""INSERT OR REPLACE INTO cgaruns %s VALUES %s"""%(self.RUNCOLS,runvals))
         self.connection.commit()
         
 

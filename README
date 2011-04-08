@@ -4,13 +4,7 @@ branch	: feature-sqlitedb
 purpose : adding a sqlite database back-end to record functions and other metadata
 
 FEATURES / FIXES:
-	- added a simple sqlite database to record unique functions, generations, etc. 
-	- added a second table to the sqlite database that records metadata about the simulation;
-		it is also written in .update()
-	- simulation constructor gets selection method and treetype information now as well
-	- added exception handling (in case all trees have nan/inf fitness) to sqlite logging; if all
-		trees have nan or inf, those statistics are recorded as 0.0 (impossible values - real 
-		fitness values are greater than 1.0 by construction)
-	- notify() is now called at the beginnning of advance(); this allows us to record the 
-		initial population, before the first generation of parental selection/mating
+	- made generations a unique primary key for the cgaruns table; hence re-running will
+	OVERWRITE data from the previous run
+	- simulation metadata is only written at generations = 0
 

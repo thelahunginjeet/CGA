@@ -8,7 +8,7 @@ update dictionaries of data based on key/value pairs.'''
 import types, unittest, numpy
 from CGAFunctions import DataMethodFactory
 from scipy import mean
-from numpy import isnan, isinf
+from numpy import isnan, isinf, int
 
 class Subject(object):
     '''Standard observer pattern, but I have modified notify to accept a kwargs dict; the update() function doesn't
@@ -138,7 +138,7 @@ class SqliteLogger(Observer):
             with self.connection:
                 # table creation
                 self.connection.execute("""CREATE TABLE IF NOT EXISTS cgaruns (
-                                                generation INTEGER,
+                                                generation INTEGER UNIQUE PRIMARY KEY,
                                                 probGrow REAL,
                                                 probPrune REAL,
                                                 probMutate REAL,
@@ -178,9 +178,12 @@ class SqliteLogger(Observer):
             values = [function, latex, generation, fitness, minFit, meanFit, maxFit] + [funcs[x] for x in self.forder]            
             self.connection.execute("""INSERT OR REPLACE INTO cgafunctions %s VALUES %s"""%(self.COLUMNS, self.QUESTIONS), values)
         self.connection.commit()
-        # update the cgaruns table
-        runvals = (kwargs['time'],subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['p'],subject.forestSize,subject.treeGenDict['treetype'],subject.selectionMethod)
-        self.connection.execute("""INSERT OR REPLACE INTO cgaruns %s VALUES %s"""%(self.RUNCOLS,runvals))
+        # update the cgaruns table - only write the majority of the metadata for generation zero
+        if int(kwargs['time']) == 0:
+            runvals = (kwargs['time'],subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['p'],subject.forestSize,subject.treeGenDict['treetype'],subject.selectionMethod)
+            self.connection.execute("""INSERT OR REPLACE INTO cgaruns %s VALUES %s"""%(self.RUNCOLS,runvals))
+        else:
+            self.connection.execute("""INSERT OR REPLACE INTO cgaruns (generation) VALUES (%d)""" % kwargs['time'])
         self.connection.commit()
         
 

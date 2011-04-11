@@ -4,7 +4,9 @@ branch	: feature-sqlitedb
 purpose : adding a sqlite database back-end to record functions and other metadata
 
 FEATURES / FIXES:
-	- made generations a unique primary key for the cgaruns table; hence re-running will
-	OVERWRITE data from the previous run
-	- simulation metadata is only written at generations = 0
+	- frequency of writing to database (every n generations) can now be controlled
+	- CGAGenerator.generate() function can now produce BinaryNode-biased trees; this has been achieved
+		by passing an additional optional parameter (r) to ._getRandomFunctionalNode(), representing 
+		the probability of returning a BinaryNode (UnaryNode returned with probability 1-r).  This
+		parameter (r) is also logged to the cgaruns database.
 

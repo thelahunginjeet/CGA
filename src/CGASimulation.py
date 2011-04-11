@@ -34,7 +34,7 @@ class CGAChromosome(object):
 
 class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5}, selectionMethod='tournament',forestSize=100, timeSteps=100, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.05):
+    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, selectionMethod='tournament',forestSize=100, timeSteps=100, sampGen=10, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.05):
         super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
@@ -61,6 +61,7 @@ class CGASimulation(Subject):
         self.pP = pP # pruning any non-terminal node
         self.pM = pM # mutation probability
         self.pC = pC # crossover probability
+        self.sampGen = sampGen # write to database once every sampGen generations
         self.time = 0
     
         
@@ -80,6 +81,7 @@ class CGASimulation(Subject):
         number of non-terminal nodes.  The treeGenDict determines which method will be used, and
         incompatible parameters result in default behavior.
         """
+        r = self.treeGenDict['r']
         if self.treeGenDict['treetype'] == 'exponential':
             if self.treeGenDict['p'] < 1.0:
                 p = self.treeGenDict['p']
@@ -87,7 +89,7 @@ class CGASimulation(Subject):
                 # use a default value; parameters are inconsistent
                 p = 0.65
             for i in xrange(self.forestSize):
-                tree = CGAGenerator.expgenerate(p)
+                tree = CGAGenerator.expgenerate(p,r)
                 fitness = self.evaluate_fitness(tree)
                 self.population.append(CGAChromosome(tree, fitness))
         elif self.treeGenDict['treetype'] == 'fixed':
@@ -97,7 +99,7 @@ class CGASimulation(Subject):
                 # default value; inconsistent parameters
                 treeSize = 5
             for i in xrange(self.forestSize):
-                tree = CGAGenerator.generate(treeSize)
+                tree = CGAGenerator.generate(treeSize,r)
                 fitness = self.evaluate_fitness(tree)
                 self.population.append(CGAChromosome(tree, fitness))
         else:
@@ -107,7 +109,8 @@ class CGASimulation(Subject):
     def advance(self):
         """Step forward one step in time recording."""
         # log data BEFORE manipulating the population
-        self.notify(time=self.time)
+        if MATH.remainder(MATH.int(self.time),self.sampGen) == 0:
+            self.notify(time=self.time)
         # first select a round of parents
         parents = [self.select_parent(method=self.selectionMethod) for x in xrange(self.forestSize)]
         # now obtain the offspring, two at a time
@@ -181,9 +184,7 @@ class CGASimulation(Subject):
         if hasattr(self, method):
             parent = getattr(self,method)(**kwargs)
         else:
-            # to avoid the simulation grinding to a total halt, just pick parents at random
-            #    if there's a problem
-            parent = rchoice(self.population)
+            parent = rchoice(self.population) # pick at random if there's a problem
         return parent
     
     
@@ -232,7 +233,7 @@ class CGASimulation(Subject):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5})
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
         self.mySimulation.populate()
         # create and attach a DataLogger
         self.dataLogger = DataLogger()

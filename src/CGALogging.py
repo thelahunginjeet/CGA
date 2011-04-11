@@ -115,7 +115,7 @@ class SqliteLogger(Observer):
         self.COLUMNS = self.COLUMNS[:-2] + ")" 
         self.QUESTIONS = "(%s)"%(((len(self.forder) + 7)*'?,')[:-1])
         # this is for the metadata 
-        self.RUNCOLS = "(generation,probGrow,probPrune,probMutate,probCross,treePar,forestSize,treeType,selectionMethod)"
+        self.RUNCOLS = "(generation,probGrow,probPrune,probMutate,probCross,treePar_p,treePar_r,forestSize,treeType,selectionMethod)"
         # fire up the sqlite
         import sqlite3
         self.connection = sqlite3.connect(dbFile)
@@ -143,7 +143,8 @@ class SqliteLogger(Observer):
                                                 probPrune REAL,
                                                 probMutate REAL,
                                                 probCross REAL,
-                                                treePar REAL,
+                                                treePar_p REAL,
+                                                treePar_r REAL,
                                                 forestSize INTEGER,
                                                 treeType TEXT,
                                                 selectionMethod TEXT);""")
@@ -180,7 +181,7 @@ class SqliteLogger(Observer):
         self.connection.commit()
         # update the cgaruns table - only write the majority of the metadata for generation zero
         if int(kwargs['time']) == 0:
-            runvals = (kwargs['time'],subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['p'],subject.forestSize,subject.treeGenDict['treetype'],subject.selectionMethod)
+            runvals = (kwargs['time'],subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.treeGenDict['treetype'],subject.selectionMethod)
             self.connection.execute("""INSERT OR REPLACE INTO cgaruns %s VALUES %s"""%(self.RUNCOLS,runvals))
         else:
             self.connection.execute("""INSERT OR REPLACE INTO cgaruns (generation) VALUES (%d)""" % kwargs['time'])

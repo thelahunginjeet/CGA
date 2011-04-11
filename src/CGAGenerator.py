@@ -124,26 +124,28 @@ class CGAGenerator(object):
 		nodeTwo.clean()
 											
 	@staticmethod
-	def _getRandomFunctionalNode():
-		if uniform < 0.5:
+	def _getRandomFunctionalNode(r=0.5):
+		if uniform < r:
 			return BinaryNode(CGAFunctions.DataMethodFactory().getBinary())
 		return UnaryNode(CGAFunctions.DataMethodFactory().getUnary())
 				
 	@staticmethod
-	def generate(number=10):
-		"""Function to generate and return a random tree with fixed number of internal nodes added.  The root has to 
-		be a scalarizing node."""
+	def generate(number=10,r=0.5):
+		"""Function to generate and return a random tree with fixed number of internal nodes added.  
+		The root has to be a scalarizing node.  Biasing of the tree towards (or away from) binary
+		nodes can be controlled with the parameter r.F"""
 		root = ScalarNode(CGAFunctions.DataMethodFactory().getScalar())
 		tree = AlgorithmTree(root)
 		while number > 0:
 			tNode = random.choice(tree.getTermini())
-			fNode = CGAGenerator._getRandomFunctionalNode()
+			fNode = CGAGenerator._getRandomFunctionalNode(r)
 			CGAGenerator._extend(tNode,fNode)
 			number -= 1
-		return tree
+		return tree	
+
 
 	@staticmethod
-	def expgenerate(p):
+	def expgenerate(p,r=0.5):
 		"""Generates and returns a random tree.  Current tree is extended at a *single* node with
 		probability p, and process terminates with probability 1-p."""
 		root = ScalarNode(CGAFunctions.DataMethodFactory().getScalar())
@@ -151,7 +153,7 @@ class CGAGenerator(object):
 		extend = True
 		while extend:
 			tNode = random.choice(tree.getTermini())
-			fNode = CGAGenerator._getRandomFunctionalNode()
+			fNode = CGAGenerator._getRandomFunctionalNode(r)
 			CGAGenerator._extend(tNode,fNode)
 			if uniform() < p:
 				extend = True
@@ -189,7 +191,7 @@ class CGAGenerator(object):
 		"""Takes an input tree and extends it by changing node into a new (random) Unary or 
 		Binary node.  New random data nodes are added as terminal leaves."""
 		assert type(tNode) is DataNode
-		fNode = CGAGenerator._getRandomFunctionalNode()
+		fNode = CGAGenerator._getRandomFunctionalNode(0.5)
 		CGAGenerator._extend(tNode, fNode)
 		
 	@staticmethod

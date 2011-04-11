@@ -16,38 +16,24 @@ def run_cga():
     proteinDBFileName = '../tests/pdz_test.db'
     pdbFileName = '../tests/1iu0.pdb'
     # how many generations to run for?
-    nGen = 10
+    nGen = 10000
     # set up a simulation
-    mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName, forestSize=30)
+    #    treeType:
+    #        fixed = fixed number of nodes
+    #        p = tree size (#nonterminal nodes)
+    #        r = bias parameter (prob. of Binary vs Unary node)
+    mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName, forestSize=50, treeGenDict={'treetype':'fixed','p':15,'r':0.6})
      # create and attach a DataLogger
     dataLogger = CGALogging.SqliteLogger('../tests/sqlitetest.db')
     mySim.attach(dataLogger)
-    # generate an initial population (default will be exponentially distributed tree sizes
-    mySim.populate(treetype='fixed')
+    # generate an initial population
+    mySim.populate()
     # now start running and logging data
     for n in range(0, nGen):
         print "working on generation : %d"%(n)
         mySim.advance()
-    # plot some stuff
-#    pylab.subplot(221)
-#    pylab.plot(dataLogger.data['time'],dataLogger.data['maxSize'],'r-')
-#    pylab.plot(dataLogger.data['time'],dataLogger.data['minSize'],'b-',hold=True)
-#    pylab.title('Tree Size Bounds (Min/Max)')
-#    pylab.subplot(222)
-#    pylab.plot(dataLogger.data['time'],dataLogger.data['maxFit'],'k-')
-#    pylab.title('Maximum Fitness')
-#    pylab.subplot(223)
-#    pylab.plot(dataLogger.data['time'],dataLogger.data['meanFit'],'k-')
-#    pylab.title('Mean Fitness')
-#    pylab.xlabel('Generation Number')
-#    pylab.subplot(224)
-#    pylab.plot(dataLogger.data['time'],dataLogger.data['wellFormed'],'k-')
-#    pylab.title('Well-formed Fraction')
-#    pylab.xlabel('Generation Number')
-#    pylab.show()
-    # detach the observer, but return the data contents
     mySim.detach(dataLogger)
-#    return dataLogger.data
+    
     
 if __name__ == '__main__':
     rundata = run_cga()

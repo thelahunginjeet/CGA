@@ -106,6 +106,8 @@ class SqliteLogger(Observer):
             self.funcs[dataFactory.unary[unary][0]] = unary
         for binary in dataFactory.binary:
             self.funcs[dataFactory.binary[binary][0]] = binary
+        for scalar in dataFactory.scalars:
+            self.funcs[dataFactory.scalars[scalar][0]] = scalar
         self.forder = sorted(self.funcs.values())
         fcolumns = ""
         self.COLUMNS = "(function, latex, generation, fitness, min_fitness, mean_fitness, max_fitness, "
@@ -214,8 +216,7 @@ class CGALoggingTests(unittest.TestCase):
     def testSqliteLogger(self):
         obs = SqliteLogger('../tests/test.db')
         self.logMe.attach(obs)
-        # can't notify because .logMe isn't a simulation object
-#        self.logMe.notify()
+        print 'Function order : ', obs.forder
         
         
 if __name__ == 'main':

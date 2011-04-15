@@ -237,7 +237,7 @@ class CGASimulationTests(unittest.TestCase):
         self.mySimulation.populate()
         # create and attach a DataLogger
         self.dataLogger = DataLogger()
-        self.sqliteLogger = SqliteLogger('../tests/sqldata.db')
+        self.sqliteLogger = SqliteLogger('../tests')
         self.mySimulation.attach(self.dataLogger)
         self.mySimulation.attach(self.sqliteLogger)
         

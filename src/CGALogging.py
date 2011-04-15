@@ -5,10 +5,21 @@ accept and pass through kwargs dicts so that the observers do not need to know t
 update dictionaries of data based on key/value pairs.'''
 
 
-import types, unittest, numpy
+import types, unittest, numpy, os
 from CGAFunctions import DataMethodFactory
 from scipy import mean
 from numpy import isnan, isinf, int
+import datetime
+
+def digitize_value(value):
+    '''Unbound method to convert nan, inf, and -inf to floating point values (or whatever you
+    want, I suppose).  Change the convert dictionary to change the conversion.'''
+    convert = {'nan':-111,'inf':-11,'-inf':-1}
+    if convert.has_key(str(value)):
+        return convert[str(value)]
+    else:
+        return value
+
 
 class Subject(object):
     '''Standard observer pattern, but I have modified notify to accept a kwargs dict; the update() function doesn't
@@ -68,126 +79,118 @@ class DataLogger(Observer):
 
 
 class SqliteLogger(Observer):
-    """This is a logger that uses sqlite3 to log to a database file two tables.  The first
-    is called 'cgafunctions' and has the format:
-            TEXT function
-            TEXT latex
+    """This is a logger that uses sqlite3 to log to two separate databases.  The first is called 
+    'run_####.sqldb', in which #### is a unique number (timestamp) created when the observer is
+    created, designed to index different runs.  The run database has two tables:
+        TABLE cgarun: records the whole population at each notify()
             INTEGER generation
             REAL fitness
-            REAL minFitness
-            REAL meanFitness
-            REAL maxFitness 
-                + number of function/data nodes per type (e.g. INTEGER f_log)
-    'cgafunctions' is updated/added to during the run. The second table, which stores 
-    simulation parameters (only logged at the beginning, never updated) is called
-    'cgaruns' and has format:
-            REAL probGrow
-            REAL probPrune
-            REAL probMutate
-            REAL probCross
-            REAL treePar (interpretation depends on treeType)
+            TEXT function
+            TEXT latex
+        
+        TABLE cgapar: records simulation parameters (logged only once)
+            REAL probGrow 
+            REAL probPrune 
+            REAL probMutate 
+            REAL probCross 
+            TEXT tree_type 
+            REAL tree_p 
+            REAL tree_r 
             INTEGER forestSize
-            TEXT treeType
             TEXT selectionMethod
-            DATE stamp
+        
+    The second database is called 'cgafunctions.sqldb'.  It has a single table cgafunctions which
+    counts all the functions we have ever found, over multiple runs.  
+        TABLE cgafunctions: logged every time there is an update
+            TEXT UNIQUE PRIMARY KEY function
+            TEXT latex
+            REAL fitness
+            INTEGER count
+    count is appropriately incremented (using a query followed by an update).
     """
     
     
-    def __init__(self, dbFile):
-        assert type(dbFile) is str
+    def __init__(self,path):
+        assert type(path) is str
         super(SqliteLogger, self).__init__()
-        # prepare the variable function columns by pointing to correct getter
-        self.funcs = {}
-        dataFactory = DataMethodFactory()
-        for data in dataFactory.data:
-            if data in ('p_i', 'p_j', 'p_ij'):
-                self.funcs[dataFactory.data[data][0]] = data
-        for unary in dataFactory.unary:
-            self.funcs[dataFactory.unary[unary][0]] = unary
-        for binary in dataFactory.binary:
-            self.funcs[dataFactory.binary[binary][0]] = binary
-        for scalar in dataFactory.scalars:
-            self.funcs[dataFactory.scalars[scalar][0]] = scalar
-        self.forder = sorted(self.funcs.values())
-        fcolumns = ""
-        self.COLUMNS = "(function, latex, generation, fitness, min_fitness, mean_fitness, max_fitness, "
-        for func in self.forder:
-            fcolumns += "f_%s INTEGER,"%(func)
-            self.COLUMNS += "f_%s, "%(func)
-        self.COLUMNS = self.COLUMNS[:-2] + ")" 
-        self.QUESTIONS = "(%s)"%(((len(self.forder) + 7)*'?,')[:-1])
-        # this is for the metadata 
-        self.RUNCOLS = "(generation,probGrow,probPrune,probMutate,probCross,treePar_p,treePar_r,forestSize,treeType,selectionMethod)"
-        # fire up the sqlite
+        self.FUNCOLS = "(function, latex, fitness, count)"
+        self.PARCOLS = "(probGrow, probPrune, probMutate, probCross, tree_type, tree_p, tree_r, forestSize, selectionMethod)"
+        self.RUNCOLS = "(generation, fitness, function, latex)"
+        # fire up sqlite3 and access/create the databases
         import sqlite3
-        self.connection = sqlite3.connect(dbFile)
+        tStamp = '%s'%(datetime.datetime.now())
+        tSP = tStamp.split(' ')
+        runDBFileName = 'run_'+tSP[0]+'_'+tSP[1]+'.sqldb'
+        funDBFileName = 'cgafunctions.sqldb'
+        
+        self.runconnection = sqlite3.connect(os.path.join(path,runDBFileName))
+        self.runcursor = self.runconnection.cursor()
+        self.funconnection = sqlite3.connect(os.path.join(path,funDBFileName))
+        self.funcursor = self.funconnection.cursor()
         # this is the function table
         try:
-            with self.connection:
-                self.connection.execute("""CREATE TABLE IF NOT EXISTS cgafunctions (
+            with self.funconnection:
+                self.funconnection.execute("""CREATE TABLE IF NOT EXISTS cgafunctions (
                                                 function TEXT UNIQUE PRIMARY KEY, 
                                                 latex TEXT, 
-                                                generation INTEGER,
                                                 fitness REAL,
-                                                min_fitness REAL,
-                                                mean_fitness REAL,
-                                                max_fitness REAL,
-                                                %s);"""%(fcolumns[:-1]))
+                                                count INTEGER);""")
         except sqlite3.IntegrityError:
-            print "there was a problem initializing your database . . ."
+            print "there was a problem initializing your table . . ."
         # metadata table
         try:
-            with self.connection:
+            with self.runconnection:
                 # table creation
-                self.connection.execute("""CREATE TABLE IF NOT EXISTS cgaruns (
-                                                generation INTEGER UNIQUE PRIMARY KEY,
+                self.runconnection.execute("""CREATE TABLE IF NOT EXISTS cgapar (
                                                 probGrow REAL,
                                                 probPrune REAL,
                                                 probMutate REAL,
                                                 probCross REAL,
-                                                treePar_p REAL,
-                                                treePar_r REAL,
+                                                tree_type TEXT,
+                                                tree_p REAL,
+                                                tree_r REAL,
                                                 forestSize INTEGER,
-                                                treeType TEXT,
                                                 selectionMethod TEXT);""")
         except sqlite3.IntegrityError:
-            print "there was a problem initializing your database . . ."
+            print "there was a problem initializing your table . . ."
+        # run table
+        try:
+            with self.runconnection:
+                # table creation
+                self.runconnection.execute("""CREATE TABLE IF NOT EXISTS cgarun (
+                                                generation INTEGER,
+                                                fitness REAL,
+                                                function TEXT,
+                                                latex TEXT);""")
+        except sqlite3.IntegrityError:
+            print 'there was a problem initializing your table . . .'
             
                 
     def update(self, subject, **kwargs):
-        try:
-            minFit = min([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])
-        except ValueError:
-            minFit = 0.0
-        try:
-            meanFit = mean([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])
-        except ValueError:
-            meanFit = 0.0
-        try:
-            maxFit = max([x.fitness for x in subject.population if not isnan(x.fitness) and not isinf(x.fitness)])        
-        except ValueError:
-            maxFit = 0.0
-        funcs = {}.fromkeys(self.forder)
         for chromosome in subject.population:
-            # reset number dictionary
-            for f in funcs:
-                funcs[f] = 0
+            # insert everything from population
             tree = chromosome.tree
-            function, latex, generation, fitness = tree.getString(), tree.getLatex(), kwargs['time'], chromosome.fitness
-            nodes = tree.getNodes()
-            # determine number of each node
-            for node in [n for n in nodes if n.string in self.funcs]:
-                funcs[self.funcs[node.string]] += 1
-            values = [function, latex, generation, fitness, minFit, meanFit, maxFit] + [funcs[x] for x in self.forder]            
-            self.connection.execute("""INSERT OR REPLACE INTO cgafunctions %s VALUES %s"""%(self.COLUMNS, self.QUESTIONS), values)
-        self.connection.commit()
-        # update the cgaruns table - only write the majority of the metadata for generation zero
+            function, latex, generation, fitness = tree.getString(), tree.getLatex(), kwargs['time'], digitize_value(chromosome.fitness)
+            runvals = tuple([generation,fitness,function,latex])
+            # run table update
+            self.runconnection.execute("""INSERT OR REPLACE INTO cgarun %s VALUES %s"""%(self.RUNCOLS,runvals))
+            self.runconnection.commit()
+            # inserts/updates into the uniques table
+            self.funcursor.execute("""SELECT count FROM cgafunctions WHERE function='%s'"""%function)
+            cTup = self.funcursor.fetchall()
+            if len(cTup) == 0:
+                # first appearance - count should be 1
+                funvals = tuple([function,latex,fitness,1])
+                self.funcursor.execute("""INSERT INTO cgafunctions %s VALUES %s"""%(self.FUNCOLS,funvals))
+            else:
+                # has appeared before - update counter
+                self.funcursor.execute("""UPDATE cgafunctions SET count=%d+1 WHERE function='%s'"""%(cTup[0][0],function))
+            self.funconnection.commit()
+        # update the cgaruns table - only occurs during first notify()
         if int(kwargs['time']) == 0:
-            runvals = (kwargs['time'],subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.treeGenDict['treetype'],subject.selectionMethod)
-            self.connection.execute("""INSERT OR REPLACE INTO cgaruns %s VALUES %s"""%(self.RUNCOLS,runvals))
-        else:
-            self.connection.execute("""INSERT OR REPLACE INTO cgaruns (generation) VALUES (%d)""" % kwargs['time'])
-        self.connection.commit()
+            parvals = (subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['treetype'],subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.selectionMethod)
+            self.runconnection.execute("""INSERT OR REPLACE INTO cgapar %s VALUES %s"""%(self.PARCOLS,parvals))
+            self.runconnection.commit()
         
 
 class CGALoggingTests(unittest.TestCase):
@@ -214,9 +217,8 @@ class CGALoggingTests(unittest.TestCase):
         self.logMe.detach(obs)
         
     def testSqliteLogger(self):
-        obs = SqliteLogger('../tests/test.db')
+        obs = SqliteLogger('../tests')
         self.logMe.attach(obs)
-        print 'Function order : ', obs.forder
         
         
 if __name__ == 'main':

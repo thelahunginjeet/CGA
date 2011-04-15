@@ -125,7 +125,7 @@ class CGAGenerator(object):
 											
 	@staticmethod
 	def _getRandomFunctionalNode(r=0.5):
-		if uniform < r:
+		if uniform() < r:
 			return BinaryNode(CGAFunctions.DataMethodFactory().getBinary())
 		return UnaryNode(CGAFunctions.DataMethodFactory().getUnary())
 				
@@ -133,7 +133,7 @@ class CGAGenerator(object):
 	def generate(number=10,r=0.5):
 		"""Function to generate and return a random tree with fixed number of internal nodes added.  
 		The root has to be a scalarizing node.  Biasing of the tree towards (or away from) binary
-		nodes can be controlled with the parameter r.F"""
+		nodes can be controlled with the parameter r."""
 		root = ScalarNode(CGAFunctions.DataMethodFactory().getScalar())
 		tree = AlgorithmTree(root)
 		while number > 0:

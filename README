@@ -3,10 +3,17 @@ README file for CGA project.
 branch	: feature-sqlitedb
 purpose : adding a sqlite database back-end to record functions and other metadata
 
+
 FEATURES / FIXES:
-	- frequency of writing to database (every n generations) can now be controlled
-	- CGAGenerator.generate() function can now produce BinaryNode-biased trees; this has been achieved
-		by passing an additional optional parameter (r) to ._getRandomFunctionalNode(), representing 
-		the probability of returning a BinaryNode (UnaryNode returned with probability 1-r).  This
-		parameter (r) is also logged to the cgaruns database.
+	- redesign of tables and database logging; see CGALogging
+	- 'None' is not written to the DB; instead we use a numeric code for non-numeric
+		fitness values:
+			NaN : -111
+			inf : -11
+			-inf : -1
+		These are all meaningless fitness values and should not be encountered in a normal, evaluateable 
+		tree.
+	- probably need a bit more deconstruction of file names; the run db has : in the name, which are a 
+		bit of a pain
+	
 

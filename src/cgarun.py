@@ -16,7 +16,7 @@ def run_cga():
     proteinDBFileName = '../tests/pdz_test.db'
     pdbFileName = '../tests/1iu0.pdb'
     # how many generations to run for?
-    nGen = 10000
+    nGen = 100
     # set up a simulation
     #    treeType:
     #        fixed = fixed number of nodes
@@ -24,7 +24,7 @@ def run_cga():
     #        r = bias parameter (prob. of Binary vs Unary node)
     mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName, forestSize=50, treeGenDict={'treetype':'fixed','p':15,'r':0.6})
      # create and attach a DataLogger
-    dataLogger = CGALogging.SqliteLogger('../tests/sqlitetest.db')
+    dataLogger = CGALogging.SqliteLogger('../tests')
     mySim.attach(dataLogger)
     # generate an initial population
     mySim.populate()

@@ -17,13 +17,16 @@ class DataFunction(object):
 class DataMethodFactory(dict):
 	"""Main class with static methods for getting data and functions"""
 	def __init__(self):
-		# the data functions
+		# the data functions (with random number generator)
 		self.data = {}
 		self.data['e'] = ("e", r'e', MATH.e)
 		self.data['pi'] = ("pi", r'\pi', MATH.pi)
-		self.data['1'] = ("1", r'1', 1.0)
-		self.data['-1'] = ("-1", r'-1', -1.0)
-		self.data['1/2'] = ("1/2", r'\frac{1}{2}', 0.5)
+		# ephemeral random number
+		rnum = randint(-1,2)*uniform() + randint(-3, 4) 
+		self.data[str(rnum)] = (str(rnum), str(rnum), rnum)
+#		self.data['1'] = ("1", r'1', 1.0)
+#		self.data['-1'] = ("-1", r'-1', -1.0)
+#		self.data['1/2'] = ("1/2", r'\frac{1}{2}', 0.5)
 		self.data['1/N'] = ("1/N", r'\frac{1}{N}', 1./20.)
 		self.data['p_i'] = ("p_i", r'\rho_{i}', -1.0)
 		self.data['p_j'] = ("p_j", r'\rho_{j}', -1.0)
@@ -45,10 +48,6 @@ class DataMethodFactory(dict):
 		self.binary['subtract'] = ("(%s-%s)", r'\left(%s-%s\right)', MATH.subtract)
 		self.binary['multiply'] = ("(%s*%s)", r'%s\dot%s', MATH.multiply)
 		self.binary['divide'] = ("(%s/%s)", r'\frac{%s}{%s}', MATH.divide)
-#		self.binary['+'] = ("(%s+%s)", r'\left(%s+%s\right)', MATH.add)
-#		self.binary['-'] = ("(%s-%s)", r'\left(%s-%s\right)', MATH.subtract)
-#		self.binary['*'] = ("(%s*%s)", r'%s\dot%s', MATH.multiply)
-#		self.binary['/'] = ("(%s/%s)", r'\frac{%s}{%s}', MATH.divide)
 		self.BINARY = len(self.binary)
 		
 		# the scalarizing functions
@@ -77,10 +76,17 @@ class DataMethodFactory(dict):
 		return DataFunction(a, b, c)
 		
 	def getData(self, name=None):
-		"""Method to return a named data element or if None a random data element"""
+		"""Method to return a named data element, if None a random data element, or a copy of an 
+			ephemeral random number (either a float or int)"""
 		if name in self.data or name is None:
 			return DataMethodFactory.randomDF(name, self.data, self.DATA)
-		return DataMethodFactory.randomDF(self.atad[name], self.data, self.DATA)
+		elif name in self.atad:
+			return DataMethodFactory.randomDF(self.atad[name], self.data, self.DATA)
+		else:
+			# asking for ephemeral random number (either float or int)			
+			if '.' in name:
+				return DataFunction(name, name, float(name))
+			return DataFunction(name, name, int(name))
 	
 	def getUnary(self, name=None):
 		"""Method to return a named unary operator or if None a random unary operator"""
@@ -129,14 +135,14 @@ class CGAFunctionsTests(unittest.TestCase):
 		self.assertEquals(self.methodFactory.getData('pi').string, 'pi')
 		self.assertEquals(self.methodFactory.getScalar('tr').string, 'tr(%s)')
 		self.assertEquals(self.methodFactory.getUnary('log').string, 'log(%s)')
-		self.assertEquals(self.methodFactory.getBinary('+').string, '(%s+%s)')
+		self.assertEquals(self.methodFactory.getBinary('add').string, '(%s+%s)')
 		
 	def testFunctions(self):
 		print "\n----- testing function evaluation -----"
 		mynansum = self.methodFactory.getScalar('sum_ij')
 		mynantrace = self.methodFactory.getScalar('tr')
 		mylog = self.methodFactory.getUnary('log')
-		mysum = self.methodFactory.getBinary('+')
+		mysum = self.methodFactory.getBinary('add')
 		self.assertAlmostEquals(0.0,mylog.function(1.0))
 		self.assertAlmostEquals(2.0,mysum.function(1.0,1.0))
 		self.assertAlmostEquals(2.0,mynansum.function([1.0,MATH.nan,1.0,MATH.nan]))

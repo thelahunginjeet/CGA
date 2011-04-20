@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
-import unittest, os, time, copy
+import unittest, os, time
 from scipy import mean,log
 import numpy as MATH
-import random
+from numpy.random import rand as urand
+from random import choice as rchoice
 from CGAPreprocessing import Utilities
-from CGAStructures import AlgorithmTree
 from CGAGenerator import CGAGenerator
-from CGALogging import Subject, Observer, DataLogger
+from CGALogging import Subject, DataLogger, SqliteLogger
 
 # TODO : 
 #  - write the simulation as a generator
@@ -19,24 +19,22 @@ class CGAChromosome(object):
     and their fitness. Right now this is very basic, but helps with bookkeeping in CGASimulation.  __cmp__
     is overloaded to allow fitness comparisons and population sorting based on fitness.  More functionality 
     could be added as desired."""
-    def __init__(self,tree=None,fitness=MATH.nan):
+    def __init__(self, tree=None, fitness=MATH.nan):
         self.tree = tree
         self.fitness = fitness
     
     def copy(self):
         return CGAChromosome(self.tree.copy(), self.fitness)
 
-    # compare must return -1, 0, 1.  this will lead to a problems because it will return None in some cases
-    # cmp helps a lot, so it would be nice to get this to work properly . . .
-    #def __cmp__(self,other):
-    #    assert self.fitness is not None
-    #    if hasattr(other,'fitness'):
-    #        return cmp(self.fitness,other.fitness)
+    def __cmp__(self, other):
+        assert self.fitness is not None
+        # add in some handling for NaN, -Inf, and Inf to automatically put them at the bottom
+        return cmp(self.fitness, other.fitness)
 
 
 class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, forestSize=100, timeSteps=100, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.05):
+    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, selectionMethod='tournament',forestSize=100, timeSteps=100, sampGen=10, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.05):
         super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
@@ -50,6 +48,8 @@ class CGASimulation(Subject):
             print 'Forest size has been adjusted to be even.'
         else:
             self.forestSize = forestSize
+        self.treeGenDict = treeGenDict
+        self.selectionMethod = selectionMethod
         # distances and protein diameter do not change
         self.distances = Utilities.calculateAtomicDistances(pdbFile)
         self.proteinDiameter = mean(self.distances.values()) - min(self.distances.values())
@@ -57,14 +57,11 @@ class CGASimulation(Subject):
         # will be a list of CGAChromosome objects
         self.population = []
         # mutation probabilities - some are per node, some are global (per tree)
-        #    pG : probability of growth
-        #    pP : probability of pruning
-        #    pM : probability of mutation
-        #    pC : probability of crossover (between two trees)
-        self.pG = pG
-        self.pP = pP
-        self.pM = pM
-        self.pC = pC
+        self.pG = pG # growth of terminal nodes
+        self.pP = pP # pruning any non-terminal node
+        self.pM = pM # mutation probability
+        self.pC = pC # crossover probability
+        self.sampGen = sampGen # write to database once every sampGen generations
         self.time = 0
     
         
@@ -78,48 +75,50 @@ class CGASimulation(Subject):
                 self.jointFrequencies[(indxi,indxj)] = MATH.asarray(self.jointFrequencies[(indxi,indxj)])
     
         
-    def populate(self,treetype='exponential',p=0.65,treeSize=10):
+    def populate(self):
         """Populate the forest of function trees.  You can choose to either use probabilistic tree
         generation (the number of nodes will be exponentially distributed) or trees with a fixed 
-        number of non-terminal nodes.
-            Input:
-                treetype : str, optional, can be 'exponential' or 'fixed'
-                p        : float, optional, controls number of nodes in exponential trees
-                treeSize : int, optional, number of nodes for fixed trees
-                popSize  : int, optional, forest size
+        number of non-terminal nodes.  The treeGenDict determines which method will be used, and
+        incompatible parameters result in default behavior.
         """
-        if treetype == 'exponential':
-            for i in range(self.forestSize):
-                tree = CGAGenerator.expgenerate(p)
+        r = self.treeGenDict['r']
+        if self.treeGenDict['treetype'] == 'exponential':
+            if self.treeGenDict['p'] < 1.0:
+                p = self.treeGenDict['p']
+            else:
+                # use a default value; parameters are inconsistent
+                p = 0.65
+            for i in xrange(self.forestSize):
+                tree = CGAGenerator.expgenerate(p,r)
                 fitness = self.evaluate_fitness(tree)
-                self.population.append(CGAChromosome(tree,fitness))
-        elif treetype == 'fixed':
-            for i in range(self.forestSize):
-                tree = CGAGenerator.generate(treeSize)
+                self.population.append(CGAChromosome(tree, fitness))
+        elif self.treeGenDict['treetype'] == 'fixed':
+            if self.treeGenDict['p'] > 1:
+                treeSize = self.treeGenDict['p']
+            else:
+                # default value; inconsistent parameters
+                treeSize = 5
+            for i in xrange(self.forestSize):
+                tree = CGAGenerator.generate(treeSize,r)
                 fitness = self.evaluate_fitness(tree)
-                self.population.append(CGAChromosome(tree,fitness))
+                self.population.append(CGAChromosome(tree, fitness))
         else:
             raise TypeError, 'Unknown tree type : %s' % treetype
 
 
     def advance(self):
         """Step forward one step in time recording."""
+        # log data BEFORE manipulating the population
+        if MATH.remainder(MATH.int(self.time),self.sampGen) == 0:
+            self.notify(time=self.time)
         # first select a round of parents
-        parents = [self.select_parent(method='tournament') for x in range(0,self.forestSize)]
+        parents = [self.select_parent(method=self.selectionMethod) for x in xrange(self.forestSize)]
         # now obtain the offspring, two at a time
         offspring = []
-        for i in range(0, self.forestSize, 2):
-            offspring += self.mate(random.choice(parents),random.choice(parents))
+        for i in xrange(0, self.forestSize, 2):
+            offspring += self.mate(rchoice(parents), rchoice(parents))
         # overwrite current forest
         self.population = offspring
-        # a few things we want to save
-        minN = MATH.min([len(k.tree.getNodes()) for k in self.population])
-        maxN = MATH.max([len(k.tree.getNodes()) for k in self.population])
-        maxFit = MATH.nanmax([k.fitness for k in self.population])
-        wellFormed = len([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])/MATH.float64(self.forestSize)
-        meanFit = MATH.mean([k.fitness for k in self.population if ~MATH.isnan(k.fitness) and ~MATH.isinf(k.fitness)])
-        # notify dictionary observer
-        self.notify(time=self.time,minSize=minN,maxSize=maxN,maxFit=maxFit,wellFormed=wellFormed,meanFit=meanFit)
         # advance time
         self.time += 1
         
@@ -134,36 +133,36 @@ class CGASimulation(Subject):
         # NONCONSERVATIVE (GROWTH, PRUNING) FIRST
         # GROWTH/EXTENSION
         for t in offOne.tree.getTermini():
-            if MATH.random.rand() < self.pG:
+            if urand() < self.pG:
                 CGAGenerator.grow(offOne.tree, t)
                 fitEval[0] = True
         for t in offTwo.tree.getTermini():
-            if MATH.random.rand() < self.pG:
+            if urand() < self.pG:
                 CGAGenerator.grow(offTwo.tree, t)
                 fitEval[1] = True
         # PRUNING - SHOULD HAVE KEPT LOCAL COPIES, OR NOT?
         for n in offOne.tree.getNodes():
-            if MATH.random.rand() < self.pP:
+            if urand() < self.pP:
                 CGAGenerator.prune(offOne.tree, n)
                 fitEval[0] = True
         for n in offTwo.tree.getNodes():
-            if MATH.random.rand() < self.pP:
+            if urand() < self.pP:
                 CGAGenerator.prune(offOne.tree, n)
                 fitEval[1] = True
         # CROSSOVER - ONLY ONE PER MATING EVENT IS ALLOWED
-        if MATH.random.rand() < self.pC:
+        if urand() < self.pC:
             fitEval = [True,True]
             # pick the nodes (roots won't crossover)
-            nodeOne = random.choice(offOne.tree.getNodes())
-            nodeTwo = random.choice(offTwo.tree.getNodes())
+            nodeOne = rchoice(offOne.tree.getNodes())
+            nodeTwo = rchoice(offTwo.tree.getNodes())
             CGAGenerator.single_crossover(nodeOne, nodeTwo)
         # POINT MUTATION 
         for n in offOne.tree.getNodes():
-            if MATH.random.rand() < self.pM:
+            if urand() < self.pM:
                 CGAGenerator.point_mutate(offOne.tree, n)
                 fitEval[0] = True
         for n in offTwo.tree.getNodes():
-            if MATH.random.rand() < self.pM:
+            if urand() < self.pM:
                 CGAGenerator.point_mutate(offTwo.tree, n)
                 fitEval[1] = True
         # compute fitnesses, if they have changed, and update the trees
@@ -171,7 +170,7 @@ class CGASimulation(Subject):
             offOne.fitness = self.evaluate_fitness(offOne.tree)
         if fitEval[1]:
             offTwo.fitness = self.evaluate_fitness(offTwo.tree)
-        return offOne,offTwo
+        return offOne, offTwo
          
     
     def select_parent(self,method,**kwargs):
@@ -182,22 +181,20 @@ class CGASimulation(Subject):
                     rand < k, the fitter individual is selected.  if rand > k, the less fit one is.
         Regardless of selected method, the parent is returned as a CGAChromosome object."""
         mstring = method + '_selection'
-        if hasattr(self,method):
+        if hasattr(self, method):
             parent = getattr(self,method)(**kwargs)
         else:
-            # to avoid the simulation grinding to a total halt, just pick parents at random
-            #    if there's a problem
-            parent = random.choice(self.population)
+            parent = rchoice(self.population) # pick at random if there's a problem
         return parent
     
     
-    def tournament_selection(self,k=0.75):
-        pOne,pTwo = (random.choice(self.population),random.choice(self.population))
+    def tournament_selection(self, k=0.75):
+        pOne, pTwo = rchoice(self.population), rchoice(self.population)
         # modified to avoid using __cmp__ method of chromosome
-        if MATH.random.rand() < k:
-            return pOne if pOne.fitness > pTwo.fitness else pTwo
+        if urand() < k:
+            return pOne if pOne > pTwo else pTwo
         else:
-            return pOne if pOne.fitness < pTwo.fitness else pTwo
+            return pOne if pOne < pTwo else pTwo
         
     
     def evaluate_fitness(self,tree):
@@ -236,11 +233,13 @@ class CGASimulation(Subject):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6)
-        self.mySimulation.populate(treetype='fixed',treeSize=5)
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
+        self.mySimulation.populate()
         # create and attach a DataLogger
         self.dataLogger = DataLogger()
+        self.sqliteLogger = SqliteLogger('../tests')
         self.mySimulation.attach(self.dataLogger)
+        self.mySimulation.attach(self.sqliteLogger)
         
     #def testCGAChromosome(self):
     #    print "\n\n----- testing comparison operator overloads in CGAChromosome() -----"

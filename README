@@ -7,13 +7,11 @@ ADD AND COMMENT BELOW, BUT DO NOT DELETE
 
 TODO:
 	- fix LaTeX; extra '\' are being produced, perhaps during database insertion (KB,4/19/11)
-	- check fitness definition; we currently getting values that are both too large (> 2) and
-	too small (< 0, not including nan/inf/-inf). Perhaps we should just go to a direct fit of
-	the pairwise distance matrix, or similar biased towards doing better on the close residues? 
-	(KB,4/19/11)
-	- add ephemeral random numbers to the Data classes; this allows us to dump a lot of stuff
-	that doesn't need to be there ('special' constants like 1/2, 1.0, etc.) (KB,4/19/11)
 	- allow scalarizers (or at least sum) within trees, as well as at the root (KB,4/19/11)
+	- add in reproducibility as a second parameter
+		- can probably use precomputed splits of 10 alignments; memory might be an issue
+	- add in other protein domains that Greg suggested
+	- code other fitness definitions (e.g. CASP, distance-matrix-based, etc.) and compare the results
 	
 
 FEATURES / FIXES:
@@ -27,5 +25,9 @@ FEATURES / FIXES:
 		tree.
 	- probably need a bit more deconstruction of file names; the run db has : in the name, which are a 
 		bit of a pain
-	
-
+	- add ephemeral random numbers to the Data classes; this allows us to dump a lot of stuff
+	that doesn't need to be there ('special' constants like 1/2, 1.0, etc.) (KB,4/19/11)
+	- check fitness definition; we currently getting values that are both too large (> 2) and
+	too small (< 0, not including nan/inf/-inf). Perhaps we should just go to a direct fit of
+	the pairwise distance matrix, or similar biased towards doing better on the close residues? 
+	(KB,4/19/11)

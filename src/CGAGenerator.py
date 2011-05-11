@@ -212,8 +212,8 @@ class CGAGeneratorTests(unittest.TestCase):
 		self.methodFactory = CGAFunctions.DataMethodFactory()
 		# set up the tree
 		self.root = ScalarNode(self.methodFactory.getScalar('sum_ij'))
-		self.node1 = BinaryNode(self.methodFactory.getBinary('+'))
-		self.node2 = BinaryNode(self.methodFactory.getBinary('-'))
+		self.node1 = BinaryNode(self.methodFactory.getBinary('add'))
+		self.node2 = BinaryNode(self.methodFactory.getBinary('subtract'))
 		self.node3 = UnaryNode(self.methodFactory.getUnary('log'))
 		# immutable data - stored
 		self.constant1 = DataNode(self.methodFactory.getData('e'))
@@ -230,7 +230,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		print "\n\n----- testing extension -----"
 		print 'Tree before extension (node,id): '
 		self.testTree()
-		newNode = BinaryNode(self.methodFactory.getBinary('*'))
+		newNode = BinaryNode(self.methodFactory.getBinary('multiply'))
 		CGAGenerator._extend(self.constant1,newNode)
 		print 'Tree after extension (node,id): '
 		self.testTree()
@@ -263,7 +263,7 @@ class CGAGeneratorTests(unittest.TestCase):
 		print "\n\n----- testing non-root replacement -----"
 		print 'Tree before replacement (node,id): '
 		self.testTree()
-		newNode = BinaryNode(self.methodFactory.getBinary('*'))
+		newNode = BinaryNode(self.methodFactory.getBinary('multiply'))
 		CGAGenerator._replace(self.testTree, self.node1, newNode)
 		print 'Tree after replacement (node,id): '
 		self.testTree()
@@ -285,8 +285,8 @@ class CGAGeneratorTests(unittest.TestCase):
 		print "\n\n----- testing subtree swap -----"
 		root = ScalarNode(self.methodFactory.getScalar('tr'))
 		node1 = UnaryNode(self.methodFactory.getUnary('log'))
-		node2 = BinaryNode(self.methodFactory.getBinary('*'))
-		constant1 = DataNode(self.methodFactory.getData('1/2'))
+		node2 = BinaryNode(self.methodFactory.getBinary('multiply'))
+		constant1 = DataNode(self.methodFactory.getData('1/N'))
 		constant2 = DataNode(self.methodFactory.getData('e'))
 		tree = AlgorithmTree(root)
 		root.setChildren(node1)
@@ -308,8 +308,8 @@ class CGAGeneratorTests(unittest.TestCase):
 		print "\n\n----- testing single_crossover(tree1Node, tree2Node) -----"
 		root = ScalarNode(self.methodFactory.getScalar('tr'))
 		node1 = UnaryNode(self.methodFactory.getUnary('log'))
-		node2 = BinaryNode(self.methodFactory.getBinary('*'))
-		constant1 = DataNode(self.methodFactory.getData('1/2'))
+		node2 = BinaryNode(self.methodFactory.getBinary('multiply'))
+		constant1 = DataNode(self.methodFactory.getData('1/N'))
 		constant2 = DataNode(self.methodFactory.getData('e'))
 		tree = AlgorithmTree(root)
 		root.setChildren(node1)

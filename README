@@ -12,6 +12,9 @@ TODO:
 		- can probably use precomputed splits of 10 alignments; memory might be an issue
 	- add in other protein domains that Greg suggested
 	- code other fitness definitions (e.g. CASP, distance-matrix-based, etc.) and compare the results
+	- fitness calculations seemed to have slowed down somewhat, probably because of exception
+	handling (but this might be unavoidable) (KB,5/11/11)
+	- allow scalarizing nodes inside the trees (KB,5/11/11)
 	
 
 FEATURES / FIXES:
@@ -31,3 +34,6 @@ FEATURES / FIXES:
 	too small (< 0, not including nan/inf/-inf). Perhaps we should just go to a direct fit of
 	the pairwise distance matrix, or similar biased towards doing better on the close residues? 
 	(KB,4/19/11)
+	- implemented both min-shifted weighted accuracy and 'direct' fit to distance matrices
+	(KB,5/11/11)
+	

@@ -35,10 +35,12 @@ class DataMethodFactory(dict):
 		
 		# the unary functions
 		self.unary = {}
-		self.unary['sin'] = ("sin(%s)", r'\sin\left(%s\right)', MATH.sin)
+		#self.unary['sin'] = ("sin(%s)", r'\sin\left(%s\right)', MATH.sin)
 		self.unary['exp'] = ("exp(%s)", r'\exp\left(%s\right)', MATH.exp)
 		self.unary['log'] = ("log(%s)", r'\log\left(%s\right)', MATH.log)
-		self.unary['tanh'] = ("tanh(%s)",r'\tanh\left(%s\right)', MATH.tanh)
+		self.unary['tanh'] = ("tanh(%s)", r'\tanh\left(%s\right)', MATH.tanh)
+		self.unary['sinh'] = ("sinh(%s)", r'\sinh\left(%s\right)', MATH.sinh)
+		self.unary['cosh'] = ("cosh(%s)", r'\cosh\left(%s\right)', MATH.cosh)
 		self.unary['transpose'] = ("(%s)^T",r'%s^T',MATH.transpose)
 		self.UNARY = len(self.unary)
 

@@ -2,6 +2,7 @@
 
 import unittest, os, time
 from scipy import mean,log
+from scipy.linalg import inv
 import numpy as MATH
 from numpy.random import rand as urand
 from random import choice as rchoice
@@ -34,7 +35,7 @@ class CGAChromosome(object):
 
 class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, selectionMethod='tournament',forestSize=100, timeSteps=100, sampGen=10, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.05):
+    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='weighted_accuracy', selectionMethod='tournament',forestSize=100, timeSteps=100, sampGen=10, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.05):
         super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
@@ -49,11 +50,13 @@ class CGASimulation(Subject):
         else:
             self.forestSize = forestSize
         self.treeGenDict = treeGenDict
+        self.fitnessMethod = fitnessMethod
         self.selectionMethod = selectionMethod
         # distances and protein diameter do not change
         self.distances = Utilities.calculateAtomicDistances(pdbFile)
         self.proteinDiameter = mean(self.distances.values()) - min(self.distances.values())
         self.proteinMinimum = min(self.distances.values())
+        self.proteinSum = sum(self.distances.values())
         # will be a list of CGAChromosome objects
         self.population = []
         # mutation probabilities - some are per node, some are global (per tree)
@@ -181,8 +184,9 @@ class CGASimulation(Subject):
                     rand < k, the fitter individual is selected.  if rand > k, the less fit one is.
         Regardless of selected method, the parent is returned as a CGAChromosome object."""
         mstring = method + '_selection'
-        if hasattr(self, method):
-            parent = getattr(self,method)(**kwargs)
+        # changed from method to mstring
+        if hasattr(self, mstring):
+            parent = getattr(self,mstring)(**kwargs)
         else:
             parent = rchoice(self.population) # pick at random if there's a problem
         return parent
@@ -197,12 +201,21 @@ class CGASimulation(Subject):
             return pOne if pOne < pTwo else pTwo
         
     
-    def evaluate_fitness(self,tree):
-        """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
-        defined as:
-            fitness = 1 + accuracy
-        Accuracy is computed in a different function, in order to allow easy swapping in of
-        different definitions."""
+    def evaluate_fitness(self,tree,**kwargs):
+        """A dispatcher to do fitness evaluations; the different fitness definitions are stored
+        in the fitnessMethod attribute and as different member functions.
+        """
+        fstring = 'evaluate_fitness_'+self.fitnessMethod
+        if hasattr(self, fstring):
+            fitness = getattr(self,fstring)(tree,**kwargs)
+        else:
+            fitness = MATH.nan
+        return fitness    
+    
+    def compute_wij(self,tree):
+        """Almost all conceivable fitness functions compute a matrix of scores, so that 
+        functionality is coded here.
+        """
         weights = {}
         pi = [x for x in tree.getTermini() if x.string == 'p_i']
         pj = [x for x in tree.getTermini() if x.string == 'p_j']
@@ -213,10 +226,74 @@ class CGASimulation(Subject):
                 map(lambda x : x.replaceData(self.singleFrequencies[j]), pj)
                 map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
                 weights[(i, j)] = tree.getFunction()
-        fitness = 1 + self.calculate_accuracy(weights)
+        return weights
+    
+    
+    def evaluate_fitness_distance_matrix(self,tree):
+        """Accepts an input tree (member of the forest) and evalutes its fitness, defined
+        as a transformed direct fit to the dimensionless distance matrix.  Specifically:
+            fitness = exp(-0.5*sum((a*w_ij + b - d_ij)^2))
+        This maps fitness to [0,1], and allows an arbitrary linear rescaling of the scores.
+        The optimal rescaling is a simple linear algebra subproblem.
+        """
+        # calculate the weights
+        weights = self.compute_wij(tree)
+        # now the best linear transformation, also accumulating weights and distance
+        #    values to avoid re-looping later
+        SW2 = 0.0
+        SW = 0.0
+        SD = sum(self.distances.values())
+        SDW = 0.0
+        W = []
+        D = []
+        for i,j in weights:
+            if (i,j) in self.distances:
+                W.append(weights[(i,j)])
+                D.append((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
+                SW2 += weights[(i,j)]**2
+                SW += weights[(i,j)]
+                SDW += weights[(i,j)]*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
+        # linear algebra to get transformation
+        try:
+            rescale = MATH.dot(inv(MATH.array([[SW2,SW],[SW,1.0]])),MATH.array([[SDW],[SD]])).flatten()
+        except:
+            rescale = MATH.array([1.0,0.0]) # just give up if there's any numerical weirdness
+        # apply transformation to get weights, then exponentiate
+        resid = MATH.array([rescale[0]*W[i] + rescale[1] - D[i] for i in range(0,len(W))])
+        fitness = MATH.exp(-0.5*((resid*resid).sum()))
+        # the residual sum could have been -inf.  Then fitness is inf, which is going to be
+        #    inappropriately selected for.  So fix that
+        if not MATH.isfinite(fitness) and fitness > 0:
+            fitness = 0.0
+        return fitness
+        
+    
+    
+    def evaluate_fitness_weighted_accuracy(self,tree):
+        """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
+        defined as:
+            fitness = 2 - sum(ws_ij*d_ij)/sum(ws_ij),
+        where d_ij is the dimensionless matrix of (positive) distances, and ws_ij = w_ij + min(min(w_ij),0).
+        """
+        # compute the weights
+        weights = self.compute_wij(tree)
+        try:
+            minw = MATH.min([x for x in weights.values() if MATH.isfinite(x)])
+        except ValueError:
+            minw = 0.0 # if there are NO finite weights, don't bother
+        minw = minw if minw < 0 else 0.0 # no min shift necessary if all weights positive
+        accuracy = []
+        normalization = minw*len(self.distances)
+        for i,j in weights:
+            if (i,j) in self.distances:
+                value = (weights[(i,j)] + minw)*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
+                accuracy.append(value)
+                normalization += weights[(i,j)]
+        fitness = 2.0 - sum(accuracy)/normalization
         return fitness
                 
-
+    
+    # potentially deprecated?
     def calculate_accuracy(self,weights):
         """Calculates the accuracy from an input dictionary of weights, keyed on the same indices as the
         distances matrix."""
@@ -233,7 +310,7 @@ class CGASimulation(Subject):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,fitnessMethod='distance_matrix',selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
         self.mySimulation.populate()
         # create and attach a DataLogger
         self.dataLogger = DataLogger()

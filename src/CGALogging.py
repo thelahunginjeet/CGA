@@ -98,6 +98,7 @@ class SqliteLogger(Observer):
             REAL tree_r 
             INTEGER forestSize
             TEXT selectionMethod
+            TEXT fitnessMethod
         
     The second database is called 'cgafunctions.sqldb'.  It has a single table cgafunctions which
     counts all the functions we have ever found, over multiple runs.  
@@ -114,7 +115,7 @@ class SqliteLogger(Observer):
         assert type(path) is str
         super(SqliteLogger, self).__init__()
         self.FUNCOLS = "(function, latex, fitness, count)"
-        self.PARCOLS = "(probGrow, probPrune, probMutate, probCross, tree_type, tree_p, tree_r, forestSize, selectionMethod)"
+        self.PARCOLS = "(probGrow, probPrune, probMutate, probCross, tree_type, tree_p, tree_r, forestSize, selectionMethod, fitnessMethod)"
         self.RUNCOLS = "(generation, fitness, function, latex)"
         # fire up sqlite3 and access/create the databases
         import sqlite3
@@ -150,7 +151,8 @@ class SqliteLogger(Observer):
                                                 tree_p REAL,
                                                 tree_r REAL,
                                                 forestSize INTEGER,
-                                                selectionMethod TEXT);""")
+                                                selectionMethod TEXT,
+                                                fitnessMethod TEXT);""")
         except sqlite3.IntegrityError:
             print "there was a problem initializing your table . . ."
         # run table
@@ -188,7 +190,7 @@ class SqliteLogger(Observer):
             self.funconnection.commit()
         # update the cgaruns table - only occurs during first notify()
         if int(kwargs['time']) == 0:
-            parvals = (subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['treetype'],subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.selectionMethod)
+            parvals = (subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['treetype'],subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.selectionMethod,subject.fitnessMethod)
             self.runconnection.execute("""INSERT OR REPLACE INTO cgapar %s VALUES %s"""%(self.PARCOLS,parvals))
             self.runconnection.commit()
         

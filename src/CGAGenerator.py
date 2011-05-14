@@ -20,7 +20,9 @@ class CGAGenerator(object):
 		3. _replace() : in situ replacement of nodes, preserving identity
 		4. _swap()    : swap two subtrees
 	These base methods are used to make more GA-type operations, which are designed to ensure
-	return of an evaluateable tree (the atomic methods do not guarantee this)."""
+	return of an evaluateable tree (the atomic methods do not guarantee this).  There are also
+	methods to generate special trees (mutual information, OMES), to check fitness functions
+	and such for them."""
 	def __init__(self):
 		raise TypeError, "this is a utility class with static methods; don't initialize me"
 	
@@ -161,6 +163,77 @@ class CGAGenerator(object):
 				extend = False
 		return tree
 
+	
+	@staticmethod
+	def generate_special_tree(treename):
+		"""Generates and returns a "special" tree.  Allowed treenames are:
+				['MI','OMES']."""
+		if treename == 'MI':
+			root = ScalarNode(CGAFunctions.DataMethodFactory().getScalar('sum_ij'))
+			n1 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('subtract'))
+			n2 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('multiply'))
+			n3 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('add'))
+			d1 = DataNode(CGAFunctions.DataMethodFactory().getData('p_ij'))
+			n4 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('log'))
+			n5 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('multiply'))
+			n6 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('multiply'))
+			d2 = DataNode(CGAFunctions.DataMethodFactory().getData('p_ij'))
+			d3 = DataNode(CGAFunctions.DataMethodFactory().getData('1/N'))
+			n7 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('multiply'))
+			d4 = DataNode(CGAFunctions.DataMethodFactory().getData('1/N'))
+			n8 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('multiply'))
+			d5 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			n9 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('log'))
+			n10 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('transpose'))
+			n11 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('log'))
+			d6 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			d7 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			n12 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('transpose'))
+			d8 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			# set up the tree
+			specialTree = AlgorithmTree(root)
+			root.setChildren(n1)
+			n1.setChildren(n2,n3)
+			n2.setChildren(d1,n4)
+			n4.setChildren(d2)
+			n3.setChildren(n5,n6)
+			n5.setChildren(d3,n7)
+			n6.setChildren(d4,n8)
+			n7.setChildren(d5,n9)
+			n8.setChildren(n10,n11)
+			n9.setChildren(d6)
+			n10.setChildren(d7)
+			n11.setChildren(n12)
+			n12.setChildren(d8)			
+		elif treename == 'OMES':
+			root = ScalarNode(CGAFunctions.DataMethodFactory().getScalar('sum_ij'))
+			n1 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('divide'))
+			n2 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('square'))
+			n3 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('multiply'))
+			n4 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('subtract'))
+			d1 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			n5 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('transpose'))
+			d2 = DataNode(CGAFunctions.DataMethodFactory().getData('p_ij'))
+			n6 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('multiply'))
+			d3 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			d4 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			n7 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('transpose'))
+			d5 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			# set up the tree
+			specialTree = AlgorithmTree(root)
+			root.setChildren(n1)
+			n1.setChildren(n2,n3)
+			n2.setChildren(n4)
+			n3.setChildren(d1,n5)
+			n4.setChildren(d2,n6)
+			n5.setChildren(d3)
+			n6.setChildren(d4,n7)
+			n7.setChildren(d5)
+		else:
+			specialTree = None
+		return specialTree
+
+	
 	@staticmethod
 	def point_mutate(tree,node):
 		"""Replaces node with a random node of the same type."""
@@ -353,7 +426,16 @@ class CGAGeneratorTests(unittest.TestCase):
 			CGAGenerator.point_mutate(self.testTree, random.choice(self.testTree.getNodes()))
 		print "Tree after mutation (node,id): "
 		self.testTree()
-		
+	
+	def testSpecialTreeGeneration(self):
+		print "\n\n----- testing generation of 'special' trees -----"
+		treeset = ['MI','OMES','DOES NOT EXIST']
+		for t in treeset:
+			tree = CGAGenerator.generate_special_tree(t)
+			if tree is not None:
+				print '%s : %s', (t,tree.getString())
+			else:
+				print 'Tree %s does not exist.' % t
 		
 if __name__ == '__main__':
 	unittest.main()

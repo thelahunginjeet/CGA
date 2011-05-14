@@ -42,6 +42,7 @@ class DataMethodFactory(dict):
 		self.unary['sinh'] = ("sinh(%s)", r'\sinh\left(%s\right)', MATH.sinh)
 		self.unary['cosh'] = ("cosh(%s)", r'\cosh\left(%s\right)', MATH.cosh)
 		self.unary['transpose'] = ("(%s)^T",r'%s^T',MATH.transpose)
+		self.unary['square'] = ("(%s)**2", r'%s^2', self.sqr)
 		self.UNARY = len(self.unary)
 
 		# the binary functions
@@ -126,6 +127,10 @@ class DataMethodFactory(dict):
 		except IndexError:
 			y = x
 		return y
+	
+	@ staticmethod
+	def sqr(x):
+		return x**2
 
 
 class CGAFunctionsTests(unittest.TestCase):

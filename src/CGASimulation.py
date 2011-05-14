@@ -238,33 +238,27 @@ class CGASimulation(Subject):
         """
         # calculate the weights
         weights = self.compute_wij(tree)
-        # now the best linear transformation, also accumulating weights and distance
-        #    values to avoid re-looping later
-        SW2 = 0.0
-        SW = 0.0
-        SD = sum(self.distances.values())
+        # accumulators allow calculation of best linear transformation
         SDW = 0.0
         W = []
         D = []
         for i,j in weights:
             if (i,j) in self.distances:
-                W.append(weights[(i,j)])
-                D.append((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
-                SW2 += weights[(i,j)]**2
-                SW += weights[(i,j)]
-                SDW += weights[(i,j)]*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
+                if MATH.isfinite(weights[(i,j)]):
+                    W.append(weights[(i,j)])
+                    D.append((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
+                    SDW += ((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)*weights[(i,j)]
         # linear algebra to get transformation
+        SW2 = sum([x**2 for x in W])
+        SW = sum([x for x in W])
+        SD = sum(D)
         try:
-            rescale = MATH.dot(inv(MATH.array([[SW2,SW],[SW,1.0]])),MATH.array([[SDW],[SD]])).flatten()
+            rescale = MATH.dot(inv(MATH.array([[SW2,SW],[SW,len(W)]])),MATH.array([[SDW],[SD]])).flatten()
         except:
             rescale = MATH.array([1.0,0.0]) # just give up if there's any numerical weirdness
         # apply transformation to get weights, then exponentiate
         resid = MATH.array([rescale[0]*W[i] + rescale[1] - D[i] for i in range(0,len(W))])
         fitness = MATH.exp(-0.5*((resid*resid).sum()))
-        # the residual sum could have been -inf.  Then fitness is inf, which is going to be
-        #    inappropriately selected for.  So fix that
-        if not MATH.isfinite(fitness) and fitness > 0:
-            fitness = 0.0
         return fitness
         
     
@@ -286,9 +280,10 @@ class CGASimulation(Subject):
         normalization = minw*len(self.distances)
         for i,j in weights:
             if (i,j) in self.distances:
-                value = (weights[(i,j)] + minw)*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
-                accuracy.append(value)
-                normalization += weights[(i,j)]
+                if MATH.isfinite(weights[(i,j)]):
+                    value = (weights[(i,j)] + minw)*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
+                    accuracy.append(value)
+                    normalization += weights[(i,j)]
         fitness = 2.0 - sum(accuracy)/normalization
         return fitness
                 
@@ -317,7 +312,18 @@ class CGASimulationTests(unittest.TestCase):
         self.sqliteLogger = SqliteLogger('../tests')
         self.mySimulation.attach(self.dataLogger)
         self.mySimulation.attach(self.sqliteLogger)
-        
+    
+    def testKnownTrees(self):
+        print "\n\n----- calculating fitness of known trees -----"
+        # create trees - MI, OMES, whatever - that have a special form and
+        #    check their fitness
+        treenames = ['MI','OMES']
+        for t in treenames:
+            tree = CGAGenerator.generate_special_tree(t)
+            print '%s : %s' % (t,tree.getString())
+            print 'Weighted accuracy fitness : ',self.mySimulation.evaluate_fitness_weighted_accuracy(tree)
+            print 'Distance matrix fitness : ',self.mySimulation.evaluate_fitness_distance_matrix(tree)
+           
     #def testCGAChromosome(self):
     #    print "\n\n----- testing comparison operator overloads in CGAChromosome() -----"
     #    c1 = CGAChromosome(tree=None,fitness=1.0)
@@ -328,7 +334,7 @@ class CGASimulationTests(unittest.TestCase):
     #        print 'Fitness %f <= %f' %(c1.fitness,c2.fitness)
     #    print 'Maximum fitness : ',MATH.max([c1,c2]).fitness
     #    print 'Minimum fitness : ',MATH.min([c2,c2]).fitness
-   
+    """
     def testAdvance(self):
         print "\n\n----- testing one-step advancement -----"
         print 'Before advancement:'
@@ -384,9 +390,9 @@ class CGASimulationTests(unittest.TestCase):
         print 'Parent selected: %s, %f' % (parent.tree.getString(),parent.fitness)
         print 'Elapsed time : %f sec' % (time.clock()-t1)
  
-        
+         
     # bring this back in later when we actually are trying to optimize
-    """def testEvaluateFitness(self):
+    def testEvaluateFitness(self):
         print "\n----- testing and timing fitness evaluation -----"
         # double loop is to not count eval() timing against the old version
         nRepeats = 1
@@ -406,8 +412,8 @@ class CGASimulationTests(unittest.TestCase):
                 for i in xrange(0,nRepeats):
                     self.mySimulation.evaluate_fitness_iter(tree)
             t2 = time.clock()
-            print 'Elapsed clock time (optimized) : %f seconds' %(t2-t1)"""
-    
+            print 'Elapsed clock time (optimized) : %f seconds' %(t2-t1)
+    """
         
 if __name__ == '__main__':
     unittest.main()

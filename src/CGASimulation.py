@@ -284,7 +284,11 @@ class CGASimulation(Subject):
                     value = (weights[(i,j)] + minw)*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
                     accuracy.append(value)
                     normalization += weights[(i,j)]
-        fitness = 2.0 - sum(accuracy)/normalization
+        # normalization might be zero, if there are no finite weights
+        if normalization > 0.0:
+            fitness = 2.0 - sum(accuracy)/normalization
+        else:
+            fitness = 0.0
         return fitness
                 
     

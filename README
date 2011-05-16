@@ -15,8 +15,6 @@ TODO:
 	- fitness calculations seemed to have slowed down somewhat, probably because of exception
 	handling (but this might be unavoidable) (KB,5/11/11)
 	- allow scalarizing nodes inside the trees (KB,5/11/11)
-	- 'p_j' is really basically P_i transpose (p_i is the same as p_j); perhaps make that explicit,
-	or just remove p_j entirely - make the GP figure out that P_i can be transposed to get P_j (KB, 5/13/11)
 	- may need to add a term to the fitness that rewards a tree for getting a larger fraction of 
 	finite (non-nan,inf,or -inf) weights (KB, 5/13/11)
 	

@@ -127,9 +127,13 @@ class CGAGenerator(object):
 											
 	@staticmethod
 	def _getRandomFunctionalNode(r=0.5):
-		if uniform() < r:
+		flip = uniform()
+		if flip < r:
 			return BinaryNode(CGAFunctions.DataMethodFactory().getBinary())
-		return UnaryNode(CGAFunctions.DataMethodFactory().getUnary())
+		else:
+			if flip > 0.9:
+				return ScalarNode(CGAFunctions.DataMethodFactory().getScalar())
+			return UnaryNode(CGAFunctions.DataMethodFactory().getUnary())
 				
 	@staticmethod
 	def generate(number=10,r=0.5):

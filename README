@@ -7,7 +7,6 @@ ADD AND COMMENT BELOW, BUT DO NOT DELETE
 
 TODO:
 	- fix LaTeX; extra '\' are being produced, perhaps during database insertion (KB,4/19/11)
-	- allow scalarizers (or at least sum) within trees, as well as at the root (KB,4/19/11)
 	- add in reproducibility as a second parameter
 		- can probably use precomputed splits of 10 alignments; memory might be an issue
 	- add in other protein domains that Greg suggested
@@ -20,6 +19,7 @@ TODO:
 	
 
 FEATURES / FIXES:
+	- allow scalarizers (or at least sum) within trees, as well as at the root (KB,4/19/11)
 	- redesign of tables and database logging; see CGALogging
 	- 'None' is not written to the DB; instead we use a numeric code for non-numeric
 		fitness values:

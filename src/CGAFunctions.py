@@ -19,44 +19,40 @@ class DataMethodFactory(dict):
 	def __init__(self):
 		# the data functions (with random number generator)
 		self.data = {}
-		self.data['e'] = ("e", r'e', MATH.e)
-		self.data['pi'] = ("pi", r'\pi', MATH.pi)
+		self.data['e'] = ("e", r' e', MATH.e)
+		self.data['pi'] = ("pi", r'$pi', MATH.pi)
 		# ephemeral random number
 		rnum = randint(-1,2)*uniform() + randint(-3, 4) 
-		self.data[str(rnum)] = (str(rnum), str(rnum), rnum)
-#		self.data['1'] = ("1", r'1', 1.0)
-#		self.data['-1'] = ("-1", r'-1', -1.0)
-#		self.data['1/2'] = ("1/2", r'\frac{1}{2}', 0.5)
-		self.data['1/N'] = ("1/N", r'\frac{1}{N}', 1./20.)
-		self.data['p_i'] = ("p_i", r'\rho_{i}', -1.0)
-		self.data['p_j'] = ("p_j", r'\rho_{j}', -1.0)
-		self.data['p_ij'] = ("p_ij", r'\rho_{ij}', -1.0)
+		self.data[str(rnum)] = (str(rnum), r' %s'%str(rnum), rnum)
+		self.data['1/N'] = ("(1/N)", r'$frac{1}{N}', 1./20.)
+		self.data['p_i'] = ("p_i", r'$rho_{i}', -1.0)
+		self.data['p_j'] = ("p_j", r'$rho_{j}', -1.0)
+		self.data['p_ij'] = ("p_ij", r'$rho_{ij}', -1.0)
 		self.DATA = len(self.data)
 		
 		# the unary functions
 		self.unary = {}
-		#self.unary['sin'] = ("sin(%s)", r'\sin\left(%s\right)', MATH.sin)
-		self.unary['exp'] = ("exp(%s)", r'\exp\left(%s\right)', MATH.exp)
-		self.unary['log'] = ("log(%s)", r'\log\left(%s\right)', MATH.log)
-		self.unary['tanh'] = ("tanh(%s)", r'\tanh\left(%s\right)', MATH.tanh)
-		self.unary['sinh'] = ("sinh(%s)", r'\sinh\left(%s\right)', MATH.sinh)
-		self.unary['cosh'] = ("cosh(%s)", r'\cosh\left(%s\right)', MATH.cosh)
-		self.unary['transpose'] = ("(%s)^T",r'%s^T',MATH.transpose)
-		self.unary['square'] = ("(%s)**2", r'%s^2', self.sqr)
+		self.unary['exp'] = ("exp(%s)", r'$exp$left( %s$right) ', MATH.exp)
+		self.unary['log'] = ("log(%s)", r'$log$left( %s$right) ', MATH.log)
+		self.unary['tanh'] = ("tanh(%s)", r'$tanh$left( %s$right) ', MATH.tanh)
+		self.unary['sinh'] = ("sinh(%s)", r'$sinh$left( %s$right) ', MATH.sinh)
+		self.unary['cosh'] = ("cosh(%s)", r'$cosh$left( %s$right) ', MATH.cosh)
+		self.unary['transpose'] = ("(%s)^T",r'$left( %s$right)^{T} ',MATH.transpose)
+		self.unary['square'] = ("(%s)**2", r'$left( %s$right)^{2} ', self.sqr)
 		self.UNARY = len(self.unary)
 
 		# the binary functions
 		self.binary = {}
-		self.binary['add'] = ("(%s+%s)", r'\left(%s+%s\right)', MATH.add)
-		self.binary['subtract'] = ("(%s-%s)", r'\left(%s-%s\right)', MATH.subtract)
-		self.binary['multiply'] = ("(%s*%s)", r'%s\dot%s', MATH.multiply)
-		self.binary['divide'] = ("(%s/%s)", r'\frac{%s}{%s}', MATH.divide)
+		self.binary['add'] = ("(%s+%s)", r'$left( %s + %s$right) ', MATH.add)
+		self.binary['subtract'] = ("(%s-%s)", r'$left( %s- %s$right) ', MATH.subtract)
+		self.binary['multiply'] = ("(%s*%s)", r'$left(%s$cdot %s$right) ', MATH.multiply)
+		self.binary['divide'] = ("(%s/%s)", r'$frac{%s}{%s}', MATH.divide)
 		self.BINARY = len(self.binary)
 		
 		# the scalarizing functions
 		self.scalars = {}
-		self.scalars['tr'] = ("tr(%s)", r'{\mathrm Tr}\left\{%s\right\}', self.nantrace)
-		self.scalars['sum_ij'] = ("sum_ij(%s)", r'\Sigma_{ij}\left(%s\right)', self.dsum)
+		self.scalars['tr'] = ("tr(%s)", r' {$mathrm Tr}$left( %s$right) ', self.nantrace)
+		self.scalars['sum_ij'] = ("sum_ij(%s)", r'$Sigma_{ij}$left( %s$right) ', self.dsum)
 		self.SCALARS = len(self.scalars)
 		
 		# reverse dicts (wait for it . . . ah) for accessing by .string

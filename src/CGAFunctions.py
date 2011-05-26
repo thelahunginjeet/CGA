@@ -51,7 +51,7 @@ class DataMethodFactory(dict):
 		
 		# the scalarizing functions
 		self.scalars = {}
-		self.scalars['tr'] = ("tr(%s)", r' {$mathrm Tr}$left( %s$right) ', self.nantrace)
+		self.scalars['tr'] = ("tr(%s)", r' {$mathrm{Tr}}$left( %s$right) ', self.nantrace)
 		self.scalars['sum_ij'] = ("sum_ij(%s)", r'$Sigma_{ij}$left( %s$right) ', self.dsum)
 		self.SCALARS = len(self.scalars)
 		

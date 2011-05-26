@@ -35,7 +35,7 @@ class CGAChromosome(object):
 
 class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='weighted_accuracy', selectionMethod='tournament',forestSize=100, timeSteps=100, sampGen=10, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.05):
+    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='weighted_accuracy', selectionMethod='tournament',elitism=True,forestSize=50, timeSteps=100, sampGen=10, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.9):
         super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
@@ -52,6 +52,15 @@ class CGASimulation(Subject):
         self.treeGenDict = treeGenDict
         self.fitnessMethod = fitnessMethod
         self.selectionMethod = selectionMethod
+        # elitism can essentially be grafted onto any selection method - ~1/10 of the
+        #    population (an even number, for mating to be simpler for the remainder of 
+        #    the offspring) are advanced as copies, without mutation, into the next
+        #    round
+        self.elitism = elitism
+        if self.elitism:
+            self.eliteN = 2*(self.forestSize/20) + 2
+        else:
+            self.eliteN = 0
         # distances and protein diameter do not change
         self.distances = Utilities.calculateAtomicDistances(pdbFile)
         self.proteinDiameter = mean(self.distances.values()) - min(self.distances.values())
@@ -59,11 +68,11 @@ class CGASimulation(Subject):
         self.proteinSum = sum(self.distances.values())
         # will be a list of CGAChromosome objects
         self.population = []
-        # mutation probabilities - some are per node, some are global (per tree)
-        self.pG = pG # growth of terminal nodes
-        self.pP = pP # pruning any non-terminal node
-        self.pM = pM # mutation probability
-        self.pC = pC # crossover probability
+        # mutation probabilities
+        self.pG = pG # growth of terminal nodes (probability is per-terminus)
+        self.pP = pP # pruning any non-terminal node (probability is per-node)
+        self.pM = pM # mutation probability (per node)
+        self.pC = pC # crossover probability (per event - only one allowed per mating)
         self.sampGen = sampGen # write to database once every sampGen generations
         self.time = 0
     
@@ -116,10 +125,19 @@ class CGASimulation(Subject):
             self.notify(time=self.time)
         # first select a round of parents
         parents = [self.select_parent(method=self.selectionMethod) for x in xrange(self.forestSize)]
-        # now obtain the offspring, two at a time
+        # now obtain the offspring, two at a time - if we are using elitism, some (even) number of
+        #    the subsequent offspring will be copies
         offspring = []
-        for i in xrange(0, self.forestSize, 2):
-            offspring += self.mate(rchoice(parents), rchoice(parents))
+        if not self.elitism:
+            for i in xrange(0, self.forestSize, 2):
+                offspring += self.mate(rchoice(parents), rchoice(parents))
+        else:
+            fitvals = MATH.asarray([x.fitness for x in self.population])
+            toCopy = fitvals.argsort()[-self.eliteN:]
+            offspring += [self.population[x].copy() for x in toCopy]
+            # now mate to create the remaining population
+            for i in xrange(0, self.forestSize-self.eliteN, 2):
+                offspring += self.mate(rchoice(parents), rchoice(parents))
         # overwrite current forest
         self.population = offspring
         # advance time
@@ -184,7 +202,6 @@ class CGASimulation(Subject):
                     rand < k, the fitter individual is selected.  if rand > k, the less fit one is.
         Regardless of selected method, the parent is returned as a CGAChromosome object."""
         mstring = method + '_selection'
-        # changed from method to mstring
         if hasattr(self, mstring):
             parent = getattr(self,mstring)(**kwargs)
         else:
@@ -258,7 +275,11 @@ class CGASimulation(Subject):
             rescale = MATH.array([1.0,0.0]) # just give up if there's any numerical weirdness
         # apply transformation to get weights, then exponentiate
         resid = MATH.array([rescale[0]*W[i] + rescale[1] - D[i] for i in range(0,len(W))])
-        fitness = MATH.exp(-0.5*((resid*resid).sum()))
+        # residuals might be empty - if so, there's not a single finite weight
+        if len(resid) == 0:
+            fitness = 0.0
+        else:
+            fitness = MATH.exp(-0.5*((resid*resid).sum()))
         return fitness
         
     
@@ -309,7 +330,7 @@ class CGASimulation(Subject):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,fitnessMethod='distance_matrix',selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=20,fitnessMethod='distance_matrix',selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
         self.mySimulation.populate()
         # create and attach a DataLogger
         self.dataLogger = DataLogger()
@@ -338,7 +359,7 @@ class CGASimulationTests(unittest.TestCase):
     #        print 'Fitness %f <= %f' %(c1.fitness,c2.fitness)
     #    print 'Maximum fitness : ',MATH.max([c1,c2]).fitness
     #    print 'Minimum fitness : ',MATH.min([c2,c2]).fitness
-    """
+    
     def testAdvance(self):
         print "\n\n----- testing one-step advancement -----"
         print 'Before advancement:'
@@ -368,14 +389,14 @@ class CGASimulationTests(unittest.TestCase):
         print 'Logged Data:'
         for k in self.dataLogger.data.keys():
             print k,self.dataLogger.data[k]
-  
+            
     def testPopulation(self):
         print "\n\n----- testing population generation -----"
         print "Population size : ", len(self.mySimulation.population)
         for x in self.mySimulation.population:
             x.tree()
             print 'String rep : %s' % x.tree.getString()
-
+            
     def testShape(self):
         print "\n\n----- testing shape conversion of input data -----"
         print self.mySimulation.indices
@@ -394,7 +415,7 @@ class CGASimulationTests(unittest.TestCase):
         print 'Parent selected: %s, %f' % (parent.tree.getString(),parent.fitness)
         print 'Elapsed time : %f sec' % (time.clock()-t1)
  
-         
+    """
     # bring this back in later when we actually are trying to optimize
     def testEvaluateFitness(self):
         print "\n----- testing and timing fitness evaluation -----"

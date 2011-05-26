@@ -16,6 +16,7 @@ TODO:
 	- allow scalarizing nodes inside the trees (KB,5/11/11)
 	- may need to add a term to the fitness that rewards a tree for getting a larger fraction of 
 	finite (non-nan,inf,or -inf) weights (KB, 5/13/11)
+	- clean LaTeX up a bit more by using multiple bracket types (easier on the eyes) (KB,5/25/11)
 	
 
 FEATURES / FIXES:
@@ -42,4 +43,6 @@ FEATURES / FIXES:
 	(KB,5/11/11)
 	- changed fitness calculations to ignore infinite/nan weights (KB,5/13/11)
 	- added x**2 to the list of unary functions (KB,5/13/11)
+	- added elitism (outside of selection method, as it can be used with any method), and logged
+	elitism state/parameter in the SQL database (KB,5/25/11)
 	

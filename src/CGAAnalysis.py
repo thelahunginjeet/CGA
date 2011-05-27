@@ -83,7 +83,7 @@ class CGAAnalysis(object):
             else:
                 npop = self.pardict['forestSize']
             for i in range(0,len(self.generations)):
-                chunk = [x for x in _fit[npop*i:npop*i+npop]] # drops negatives
+                chunk = [x for x in _fit[npop*i:npop*i+npop]]
                 self.maxfitness.append(np.max(chunk))
             self.maxfitness = np.asarray(self.maxfitness)
         return self.maxfitness

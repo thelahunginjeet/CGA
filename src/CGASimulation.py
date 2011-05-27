@@ -35,7 +35,7 @@ class CGAChromosome(object):
 
 class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='weighted_accuracy', selectionMethod='tournament',elitism=True,forestSize=50, timeSteps=100, sampGen=10, pG = 0.01, pP = 0.01, pM = 0.01, pC = 0.9):
+    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='weighted_accuracy', selectionMethod='tournament',elitism=True,forestSize=50, timeSteps=100, sampGen=10, pG = 0.1, pP = 0.1, pM = 0.01, pC = 0.9):
         super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
@@ -330,7 +330,7 @@ class CGASimulation(Subject):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=20,fitnessMethod='distance_matrix',selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,fitnessMethod='distance_matrix',selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
         self.mySimulation.populate()
         # create and attach a DataLogger
         self.dataLogger = DataLogger()
@@ -377,6 +377,7 @@ class CGASimulationTests(unittest.TestCase):
         print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
         for i in range(100):
             self.mySimulation.advance()
+            print 'Max fitness: %e' % MATH.max([x.fitness for x in self.mySimulation.population])
         print 'After advancement (100 steps):'
         print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]

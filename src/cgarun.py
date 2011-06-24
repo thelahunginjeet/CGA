@@ -8,21 +8,20 @@ Example script to do offline runs of the CGA.
 
 # if you want to collect data, import CGALogging
 import CGASimulation, CGALogging
-# for plotting at the end
-import pylab
+from numpy import max
 
 def run_cga():
     # which db and pdb file to use?
     proteinDBFileName = '../tests/pdz_test.db'
     pdbFileName = '../tests/1iu0.pdb'
     # how many generations to run for?
-    nGen = 10000
+    nGen = 500
     # set up a simulation
     #    treeType:
     #        fixed = fixed number of nodes
     #        p = tree size (#nonterminal nodes)
     #        r = bias parameter (prob. of Binary vs Unary node)
-    mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName, fitnessMethod='weighted_accuracy', forestSize=30, treeGenDict={'treetype':'fixed','p':15,'r':0.5})
+    mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName, sampGen=1, selectionMethod='pareto_tournament', fitnessMethod='distance_matrix', forestSize=30, treeGenDict={'treetype':'fixed','p':15,'r':0.5})
      # create and attach a DataLogger
     dataLogger = CGALogging.SqliteLogger('../tests')
     mySim.attach(dataLogger)
@@ -30,7 +29,7 @@ def run_cga():
     mySim.populate()
     # now start running and logging data
     for n in range(0, nGen):
-        print "working on generation : %d"%(n)
+        print 'max fitness %f, working on generation %d' % (max([x.fitness for x in mySim.population]),n)
         mySim.advance()
     mySim.detach(dataLogger)
     

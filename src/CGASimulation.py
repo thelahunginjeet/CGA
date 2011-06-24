@@ -17,15 +17,17 @@ from CGALogging import Subject, DataLogger, SqliteLogger
 
 class CGAChromosome(object):
     """CGA chromosomes are a container class that stores both the unit of selection (a tree in this problem) 
-    and their fitness. Right now this is very basic, but helps with bookkeeping in CGASimulation.  __cmp__
-    is overloaded to allow fitness comparisons and population sorting based on fitness.  More functionality 
-    could be added as desired."""
-    def __init__(self, tree=None, fitness=MATH.nan):
+    and their fitness (multiple fitness criteria are stored). Right now this is very basic, but helps with 
+    bookkeeping in CGASimulation.  __cmp__ is overloaded to allow fitness comparisons and population sorting 
+    based on fitness.  More functionality could be added as desired."""
+    def __init__(self, tree=None, fitness=MATH.nan, parsimony=MATH.nan, finitewts=MATH.nan):
         self.tree = tree
         self.fitness = fitness
+        self.parsimony = parsimony
+        self.finitewts = finitewts
     
     def copy(self):
-        return CGAChromosome(self.tree.copy(), self.fitness)
+        return CGAChromosome(self.tree.copy(), self.fitness, self.parsimony, self.finitewts)
 
     def __cmp__(self, other):
         assert self.fitness is not None
@@ -35,7 +37,7 @@ class CGAChromosome(object):
 
 class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='weighted_accuracy', selectionMethod='tournament',elitism=True,forestSize=50, timeSteps=100, sampGen=10, pG = 0.1, pP = 0.1, pM = 0.01, pC = 0.9):
+    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='distance_matrix', selectionMethod='pareto_tournament',elitism=True,forestSize=50, timeSteps=100, sampGen=1, pG = 0.025, pP = 0.025, pHC = 0.1, pM = 0.05, pC = 0.7):
         super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
@@ -53,12 +55,12 @@ class CGASimulation(Subject):
         self.fitnessMethod = fitnessMethod
         self.selectionMethod = selectionMethod
         # elitism can essentially be grafted onto any selection method - ~1/10 of the
-        #    population (an even number, for mating to be simpler for the remainder of 
-        #    the offspring) are advanced as copies, without mutation, into the next
+        #    population are advanced as copies, without mutation, into the next
         #    round
         self.elitism = elitism
+        # ensures eliteN neq 0 for popSize > 10, and is at least 1
         if self.elitism:
-            self.eliteN = 2*(self.forestSize/20) + 2
+            self.eliteN = max(MATH.int(self.forestSize/10.0),1)
         else:
             self.eliteN = 0
         # distances and protein diameter do not change
@@ -68,11 +70,14 @@ class CGASimulation(Subject):
         self.proteinSum = sum(self.distances.values())
         # will be a list of CGAChromosome objects
         self.population = []
-        # mutation probabilities
-        self.pG = pG # growth of terminal nodes (probability is per-terminus)
-        self.pP = pP # pruning any non-terminal node (probability is per-node)
-        self.pM = pM # mutation probability (per node)
-        self.pC = pC # crossover probability (per event - only one allowed per mating)
+        # mutation probabilities - only one kind of mutation is performed per offspring, so
+        #    pG + pP + pM + pC + pHC <= 1
+        # the leftover probability will just advance the individual without mutation
+        self.pG = pG   # growth of terminal nodes (probability is per-terminus)
+        self.pP = pP   # pruning any non-terminal node (probability is per-node)
+        self.pM = pM   # mutation probability (per node)
+        self.pC = pC   # crossover probability (per event - only one allowed per mating)
+        self.pHC = pHC # "headless chicken" crossover probability
         self.sampGen = sampGen # write to database once every sampGen generations
         self.time = 0
     
@@ -86,6 +91,28 @@ class CGASimulation(Subject):
                 indxj = self.indices[j]
                 self.jointFrequencies[(indxi,indxj)] = MATH.asarray(self.jointFrequencies[(indxi,indxj)])
     
+    
+    def initialize_tree(self):
+        """Creates a single random tree using the parameters in self.treeGenDict.  This functionality
+        has been separated from self.populate() in order to make headless chicken crossover (in which we
+        crossover with a randomly generated tree) easier."""
+        r = self.treeGenDict['r']
+        if self.treeGenDict['treetype'] == 'exponential':
+            if self.treeGenDict['p'] < 1.0:
+                p = self.treeGenDict['p']
+            else:
+                # ensures consistent parameter values
+                p = 1/self.treeGenDict['p']
+            return CGAGenerator.expgenerate(p,r)
+        elif self.treeGenDict['treetype'] == 'fixed':
+            if self.treeGenDict['p'] > 1:
+                treeSize = self.treeGenDict['p']
+            else:
+                treeSize = MATH.int(1.0/self.treeGenDict['p'])
+            return CGAGenerator.generate(treeSize,r)
+        else:
+            raise TypeError, 'Unknown tree type %s' % self.treeGenDict['treetype']
+        
         
     def populate(self):
         """Populate the forest of function trees.  You can choose to either use probabilistic tree
@@ -93,105 +120,77 @@ class CGASimulation(Subject):
         number of non-terminal nodes.  The treeGenDict determines which method will be used, and
         incompatible parameters result in default behavior.
         """
-        r = self.treeGenDict['r']
-        if self.treeGenDict['treetype'] == 'exponential':
-            if self.treeGenDict['p'] < 1.0:
-                p = self.treeGenDict['p']
-            else:
-                # use a default value; parameters are inconsistent
-                p = 0.65
-            for i in xrange(self.forestSize):
-                tree = CGAGenerator.expgenerate(p,r)
-                fitness = self.evaluate_fitness(tree)
-                self.population.append(CGAChromosome(tree, fitness))
-        elif self.treeGenDict['treetype'] == 'fixed':
-            if self.treeGenDict['p'] > 1:
-                treeSize = self.treeGenDict['p']
-            else:
-                # default value; inconsistent parameters
-                treeSize = 5
-            for i in xrange(self.forestSize):
-                tree = CGAGenerator.generate(treeSize,r)
-                fitness = self.evaluate_fitness(tree)
-                self.population.append(CGAChromosome(tree, fitness))
-        else:
-            raise TypeError, 'Unknown tree type : %s' % treetype
+        for i in range(self.forestSize):
+            tree = self.initialize_tree()
+            fitness,parsimony,finitewts = self.evaluate_fitness(tree)
+            self.population.append(CGAChromosome(tree,fitness,parsimony,finitewts))
 
 
     def advance(self):
-        """Step forward one step in time recording."""
+        """Step forward one step in time."""
         # log data BEFORE manipulating the population
         if MATH.remainder(MATH.int(self.time),self.sampGen) == 0:
             self.notify(time=self.time)
         # first select a round of parents
         parents = [self.select_parent(method=self.selectionMethod) for x in xrange(self.forestSize)]
-        # now obtain the offspring, two at a time - if we are using elitism, some (even) number of
-        #    the subsequent offspring will be copies
-        offspring = []
+        offspring = list()
         if not self.elitism:
-            for i in xrange(0, self.forestSize, 2):
-                offspring += self.mate(rchoice(parents), rchoice(parents))
+            for i in xrange(0, self.forestSize):
+                offspring.append(self.mate(rchoice(parents),rchoice(parents)))
         else:
             fitvals = MATH.asarray([x.fitness for x in self.population])
             toCopy = fitvals.argsort()[-self.eliteN:]
             offspring += [self.population[x].copy() for x in toCopy]
             # now mate to create the remaining population
-            for i in xrange(0, self.forestSize-self.eliteN, 2):
-                offspring += self.mate(rchoice(parents), rchoice(parents))
+            for i in xrange(0, self.forestSize-self.eliteN):
+                offspring.append(self.mate(rchoice(parents), rchoice(parents)))
         # overwrite current forest
         self.population = offspring
         # advance time
         self.time += 1
         
+            
     def mate(self, parentOne, parentTwo):
-        """Accepts two parents and returns two offspring; if the offspring is unchanged from one of
-        the parents, the fitness is not re-evaluated, just copied."""
-        # offspring begin as copies of their parents
-        offOne, offTwo = parentOne.copy(), parentTwo.copy()
-        # fitEval[i] will be set to True if any mutations occur that make offspring i different from
-        #    parent i or j; this way we avoid unnecessary fitness evaluations
-        fitEval = [False, False]
-        # NONCONSERVATIVE (GROWTH, PRUNING) FIRST
-        # GROWTH/EXTENSION
-        for t in offOne.tree.getTermini():
-            if urand() < self.pG:
-                CGAGenerator.grow(offOne.tree, t)
-                fitEval[0] = True
-        for t in offTwo.tree.getTermini():
-            if urand() < self.pG:
-                CGAGenerator.grow(offTwo.tree, t)
-                fitEval[1] = True
-        # PRUNING - SHOULD HAVE KEPT LOCAL COPIES, OR NOT?
-        for n in offOne.tree.getNodes():
-            if urand() < self.pP:
-                CGAGenerator.prune(offOne.tree, n)
-                fitEval[0] = True
-        for n in offTwo.tree.getNodes():
-            if urand() < self.pP:
-                CGAGenerator.prune(offOne.tree, n)
-                fitEval[1] = True
-        # CROSSOVER - ONLY ONE PER MATING EVENT IS ALLOWED
-        if urand() < self.pC:
-            fitEval = [True,True]
-            # pick the nodes (roots won't crossover)
-            nodeOne = rchoice(offOne.tree.getNodes())
-            nodeTwo = rchoice(offTwo.tree.getNodes())
-            CGAGenerator.single_crossover(nodeOne, nodeTwo)
-        # POINT MUTATION 
-        for n in offOne.tree.getNodes():
-            if urand() < self.pM:
-                CGAGenerator.point_mutate(offOne.tree, n)
-                fitEval[0] = True
-        for n in offTwo.tree.getNodes():
-            if urand() < self.pM:
-                CGAGenerator.point_mutate(offTwo.tree, n)
-                fitEval[1] = True
-        # compute fitnesses, if they have changed, and update the trees
-        if fitEval[0]:
-            offOne.fitness = self.evaluate_fitness(offOne.tree)
-        if fitEval[1]:
-            offTwo.fitness = self.evaluate_fitness(offTwo.tree)
-        return offOne, offTwo
+        """Accepts two parents and returns ONE offspring; if the offspring is unchanged from one of
+        the parents, the fitness values are not re-evaluated, just copied.  Only one category of 
+        mutation is performed on a single offspring."""
+        # one parent will form the basis for the new offspring; the other is just there for 
+        #    potential crossover (by default the mother will become the offspring)
+        mother, father  = parentOne.copy(), parentTwo.copy()
+        # fitEval will be set to True if any mutations occur that make the offspring different from
+        #    its copied parent; this way we avoid unnecessary fitness evaluations
+        fitEval = False
+        # only one category of mutation is allowed per mating event
+        r = urand()
+        if r < self.pC: # parental crossover
+            fitEval = True
+            mNode = rchoice(mother.tree.getNodes())
+            fNode = rchoice(father.tree.getNodes())
+            CGAGenerator.single_crossover(mNode,fNode)
+        elif r < self.pC + self.pHC: # headless chicken crossover
+            fitEval = True
+            mNode = rchoice(mother.tree.getNodes())
+            rNode = rchoice(self.initialize_tree().getNodes())
+            CGAGenerator.single_crossover(mNode,rNode)
+        elif r < self.pC + self.pHC + self.pM: # point mutation (uses pM/node for mutation prob.)
+            fitEval = True
+            for n in mother.tree.getNodes():
+                if urand() < self.pM:
+                    CGAGenerator.point_mutate(mother.tree, n)
+                    fitEval = True
+        elif r < self.pC + self.pHC + self.pM + self.pP: # pruning - guaranteed to do one pruning operation
+            fitEval = True
+            mNode = rchoice(mother.tree.getNodes())
+            CGAGenerator.prune(mother.tree,mNode)
+        elif r < self.pC + self.pHC + self.pM + self.pP + self.pG: # growth - guaranteed to do one growth op.
+            fitEval = True
+            mTerm = rchoice(mother.tree.getTermini())
+            CGAGenerator.grow(mother.tree,mTerm)
+        else: # offspring will just be a copy
+            pass
+        if fitEval:
+            mother.fitness,mother.parsimony,mother.finitewts = self.evaluate_fitness(mother.tree)
+        return mother
          
     
     def select_parent(self,method,**kwargs):
@@ -218,16 +217,29 @@ class CGASimulation(Subject):
             return pOne if pOne < pTwo else pTwo
         
     
+    def pareto_tournament_selection(self, k=0.75):
+        '''Psuedo-Pareto tournament selection for multi-objective offspring.'''
+        pOne, pTwo = rchoice(self.population), rchoice(self.population)
+        f1 = MATH.array([pOne.fitness,pOne.parsimony,pOne.finitewts])
+        f2 = MATH.array([pTwo.fitness,pTwo.parsimony,pTwo.finitewts])
+        if urand() < k:
+            return pOne if MATH.sign((f1-f2)).sum() > 0 else pTwo
+        else:
+            return pOne if MATH.sign((f1-f2)).sum() < 0 else pTwo
+    
+    
     def evaluate_fitness(self,tree,**kwargs):
         """A dispatcher to do fitness evaluations; the different fitness definitions are stored
         in the fitnessMethod attribute and as different member functions.
         """
         fstring = 'evaluate_fitness_'+self.fitnessMethod
         if hasattr(self, fstring):
-            fitness = getattr(self,fstring)(tree,**kwargs)
+            fitness,finitewts = getattr(self,fstring)(tree,**kwargs)
         else:
-            fitness = MATH.nan
-        return fitness    
+            fitness,finitewts = -1.0*MATH.inf,0.0
+        parsimony = -1.0*len(tree.getNodes())
+        return fitness,parsimony,finitewts    
+    
     
     def compute_wij(self,tree):
         """Almost all conceivable fitness functions compute a matrix of scores, so that 
@@ -247,14 +259,15 @@ class CGASimulation(Subject):
     
     
     def evaluate_fitness_distance_matrix(self,tree):
-        """Accepts an input tree (member of the forest) and evalutes its fitness, defined
+        """Accepts an input tree (member of the forest) and evaluates its fitness, defined
         as a transformed direct fit to the dimensionless distance matrix.  Specifically:
-            fitness = exp(-0.5*sum((a*w_ij + b - d_ij)^2))
+            fitness = -0.5*sum((a*w_ij + b - d_ij)^2)
         This maps fitness to [0,1], and allows an arbitrary linear rescaling of the scores.
         The optimal rescaling is a simple linear algebra subproblem.
         """
         # calculate the weights
         weights = self.compute_wij(tree)
+        finitewts = 0.0
         # accumulators allow calculation of best linear transformation
         SDW = 0.0
         W = []
@@ -265,33 +278,38 @@ class CGASimulation(Subject):
                     W.append(weights[(i,j)])
                     D.append((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
                     SDW += ((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)*weights[(i,j)]
+                    finitewts += 1.0
         # linear algebra to get transformation
         SW2 = sum([x**2 for x in W])
         SW = sum([x for x in W])
         SD = sum(D)
         try:
             rescale = MATH.dot(inv(MATH.array([[SW2,SW],[SW,len(W)]])),MATH.array([[SDW],[SD]])).flatten()
+            if not MATH.isfinite(rescale).all():
+                rescale = MATH.array([1.0,0.0])
         except:
             rescale = MATH.array([1.0,0.0]) # just give up if there's any numerical weirdness
-        # apply transformation to get weights, then exponentiate
+        # apply transformation to get weights
         resid = MATH.array([rescale[0]*W[i] + rescale[1] - D[i] for i in range(0,len(W))])
         # residuals might be empty - if so, there's not a single finite weight
         if len(resid) == 0:
-            fitness = 0.0
+            fitness = -1.0*MATH.inf
         else:
-            fitness = MATH.exp(-0.5*((resid*resid).sum()))
-        return fitness
+            fitness = -0.5*((resid*resid).sum())
+        return fitness,finitewts/len(weights)
         
     
     
     def evaluate_fitness_weighted_accuracy(self,tree):
         """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
         defined as:
-            fitness = 2 - sum(ws_ij*d_ij)/sum(ws_ij),
+            fitness = -1.0*sum(ws_ij*d_ij)/sum(ws_ij),
         where d_ij is the dimensionless matrix of (positive) distances, and ws_ij = w_ij + min(min(w_ij),0).
+        The -1.0 multiplier insures better outcomes = increasing fitness.
         """
         # compute the weights
         weights = self.compute_wij(tree)
+        finitewts = 0.0
         try:
             minw = MATH.min([x for x in weights.values() if MATH.isfinite(x)])
         except ValueError:
@@ -305,12 +323,13 @@ class CGASimulation(Subject):
                     value = (weights[(i,j)] + minw)*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
                     accuracy.append(value)
                     normalization += weights[(i,j)]
+                    finitewts += 1.0
         # normalization might be zero, if there are no finite weights
         if normalization > 0.0:
-            fitness = 2.0 - sum(accuracy)/normalization
+            fitness = -1.0*sum(accuracy)/normalization
         else:
-            fitness = 0.0
-        return fitness
+            fitness = -1.0*MATH.inf
+        return fitness,finitewts/len(weights)
                 
     
     # potentially deprecated?
@@ -330,7 +349,7 @@ class CGASimulation(Subject):
 
 class CGASimulationTests(unittest.TestCase):
     def setUp(self):
-        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,fitnessMethod='distance_matrix',selectionMethod='tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
+        self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',forestSize=6,fitnessMethod='distance_matrix',selectionMethod='pareto_tournament',treeGenDict={'treetype':'fixed','p':5,'r':0.5})
         self.mySimulation.populate()
         # create and attach a DataLogger
         self.dataLogger = DataLogger()
@@ -359,7 +378,7 @@ class CGASimulationTests(unittest.TestCase):
     #        print 'Fitness %f <= %f' %(c1.fitness,c2.fitness)
     #    print 'Maximum fitness : ',MATH.max([c1,c2]).fitness
     #    print 'Minimum fitness : ',MATH.min([c2,c2]).fitness
-    
+    """
     def testAdvance(self):
         print "\n\n----- testing one-step advancement -----"
         print 'Before advancement:'
@@ -369,19 +388,20 @@ class CGASimulationTests(unittest.TestCase):
         print 'After advancement (one step):'
         print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
-        
+    """    
     def testMultiAdvance(self):
         print "\n\n----- testing advancement of the tree over many steps -----"
         print 'Before advancement:'
         print 'Pop. size : ', len(self.mySimulation.population)
+        n = 10
         print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
-        for i in range(100):
-            self.mySimulation.advance()
+        for i in range(n):
             print 'Max fitness: %e' % MATH.max([x.fitness for x in self.mySimulation.population])
-        print 'After advancement (100 steps):'
+            self.mySimulation.advance()
+        print 'After advancement (%d steps):' % n
         print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
-   
+    """   
     def testDataLogging(self):
         print "\n\n----- testing data logging -----"
         print 'Advancing twice.'
@@ -416,7 +436,7 @@ class CGASimulationTests(unittest.TestCase):
         print 'Parent selected: %s, %f' % (parent.tree.getString(),parent.fitness)
         print 'Elapsed time : %f sec' % (time.clock()-t1)
  
-    """
+
     # bring this back in later when we actually are trying to optimize
     def testEvaluateFitness(self):
         print "\n----- testing and timing fitness evaluation -----"

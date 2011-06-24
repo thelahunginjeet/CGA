@@ -15,12 +15,15 @@ class CGAAnalysis(object):
         # fetch run parameters and fields; load them into a dictionary
         self.pardict = {}
         fields = [x[1] for x in self.cursor.execute("""PRAGMA table_info(cgapar)""").fetchall()]
+        # below might fail on an empty database; insert error checking
         values = [x for x in self.cursor.execute("""SELECT * FROM cgapar""").fetchall()[0]]
         for i in range(0,len(fields)):
             self.pardict[fields[i]] = values[i]
         # these hold data
         self.generations = None
         self.fitness = None
+        self.parsimony = None
+        self.finitewts = None
         self.maxfitness = None
         self.meanfitness = None
         self.offline = None
@@ -42,12 +45,55 @@ class CGAAnalysis(object):
             self.generations = np.unique([x[0] for x in self.cursor.execute("""SELECT generation FROM cgarun""").fetchall()])
         return self.generations
     
-    
     def get_fitness(self):
         """Fetches and returns all fitness values recorded during the run."""
         if self.fitness is None:
             self.fitness = [x[0] for x in self.cursor.execute("""SELECT fitness FROM cgarun""").fetchall()]
         return self.fitness
+    
+    def get_parsimony(self):
+        """Fetches and returns all parsimony values recorded during the run."""
+        if self.parsimony is None:
+            self.parsimony = [x[0] for x in self.cursor.execute("""SELECT parsimony FROM cgarun""").fetchall()]
+        return self.parsimony
+    
+    def get_finite_weights(self):
+        """Fetches and returns all fraction-of-weights-which-are-finite terms."""
+        if self.finitewts is None:
+            self.finitewts = [x[0] for x in self.cursor.execute("""SELECT finitewts FROM cgarun""").fetchall()]
+        return self.finitewts
+    
+    def get_mean_parsimony(self):
+        if self.generations is None:
+            _g = self.get_generations()
+        meanpars = []
+        _pars = self.get_parsimony()
+        if not self.pardict.has_key('forestSize'):
+            print 'ERROR.  Cannot determine size of forest.'
+            return None
+        else:
+            npop = self.pardict['forestSize']
+        for i in range(0,len(self.generations)):
+            chunk = [x for x in _pars[npop*i:npop*i+npop]]
+            meanpars.append(np.mean(chunk))
+        return np.asarray(meanpars)
+    
+    
+    def get_mean_finite_weights(self):
+        if self.generations is None:
+            _g = self.get_generations()
+        meanfw = []
+        _fw = [x[0] for x in self.cursor.execute("""SELECT finitewts FROM cgarun""").fetchall()]
+        if not self.pardict.has_key('forestSize'):
+            print 'ERROR.  Cannot determine size of forest.'
+            return None
+        else:
+            npop = self.pardict['forestSize']
+        for i in range(0,len(self.generations)):
+            chunk = [x for x in _fw[npop*i:npop*i+npop]]
+            meanfw.append(np.mean(chunk))
+        return np.asarray(meanfw)
+            
     
     
     def get_mean_fitness(self):
@@ -57,7 +103,7 @@ class CGAAnalysis(object):
             _g = self.get_generations()
         if self.meanfitness is None:
             self.meanfitness = []
-            _fit = [x[0] for x in self.cursor.execute("""SELECT fitness FROM cgarun""").fetchall()]
+            _fit = self.get_fitness()
             if not self.pardict.has_key('forestSize'):
                 print 'ERROR.  Cannot determine size of forest.'
                 return None
@@ -76,7 +122,7 @@ class CGAAnalysis(object):
             _g = self.get_generations()
         if self.maxfitness is None:
             self.maxfitness = []
-            _fit = [x[0] for x in self.cursor.execute("""SELECT fitness FROM cgarun""").fetchall()]
+            _fit = self.get_fitness()
             if not self.pardict.has_key('forestSize'):
                 print 'ERROR.  Cannot determine size of forest.'
                 return None

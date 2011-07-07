@@ -79,7 +79,7 @@ class CGAAnalysis(object):
                     calcvals.append(rfunc([x for x in _temp[npop*i:npop*i+npop]]))
                 else:
                     # drops positive fitness values
-                    calcvals.append(rfunc([x for x in _temp[npop*i:npop*i+npop] if x <= 0]))
+                    calcvals.append(rfunc([x for x in _temp[npop*i:npop*i+npop] if x < 0]))
             self.dataDict[key] = np.asarray(calcvals)
         return self.dataDict[key]
           

@@ -94,7 +94,8 @@ class SqliteLogger(Observer):
             REAL probGrow 
             REAL probPrune 
             REAL probMutate 
-            REAL probCross 
+            REAL probCross
+            REAL probHeadCross 
             TEXT tree_type 
             REAL tree_p 
             REAL tree_r 
@@ -122,7 +123,7 @@ class SqliteLogger(Observer):
         assert type(path) is str
         super(SqliteLogger, self).__init__()
         self.FUNCOLS = "(function, latex, fitness, parsimony, finitewts, count)"
-        self.PARCOLS = "(probGrow, probPrune, probMutate, probCross, tree_type, tree_p, tree_r, forestSize, selectionMethod, elitism, eliteN, fitnessMethod, sampGen)"
+        self.PARCOLS = "(probGrow, probPrune, probMutate, probCross, probHeadCross, tree_type, tree_p, tree_r, forestSize, selectionMethod, elitism, eliteN, fitnessMethod, sampGen)"
         self.RUNCOLS = "(generation, fitness, parsimony, finitewts, function, latex)"
         # fire up sqlite3 and access/create the databases
         import sqlite3
@@ -156,6 +157,7 @@ class SqliteLogger(Observer):
                                                 probPrune REAL,
                                                 probMutate REAL,
                                                 probCross REAL,
+                                                probHeadCross REAL,
                                                 tree_type TEXT,
                                                 tree_p REAL,
                                                 tree_r REAL,
@@ -204,7 +206,7 @@ class SqliteLogger(Observer):
             self.funconnection.commit()
         # update the cgaruns table - only occurs during first notify()
         if int(kwargs['time']) == 0:
-            parvals = (subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['treetype'],subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.selectionMethod,subject.elitism.__repr__(),subject.eliteN,subject.fitnessMethod,subject.sampGen)
+            parvals = (subject.pG,subject.pP,subject.pM,subject.pC,subject.pHC,subject.treeGenDict['treetype'],subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.selectionMethod,subject.elitism.__repr__(),subject.eliteN,subject.fitnessMethod,subject.sampGen)
             self.runconnection.execute("""INSERT OR REPLACE INTO cgapar %s VALUES %s"""%(self.PARCOLS,parvals))
             self.runconnection.commit()
         

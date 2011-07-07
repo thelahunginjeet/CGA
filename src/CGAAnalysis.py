@@ -4,6 +4,11 @@ import unittest,os
 import sqlite3
 import numpy as np
 
+"""Exceptions for the CGAAnalysis class."""
+class CGADBException(Exception):
+    def __init__(self,dbField):
+        print "Field %s does not exist in run database. Check table_info(cgarun)." % dbField
+
 class CGAAnalysis(object):
     """Class to perform post-hoc analysis on database files created by CGASimulation.  Reads simulation parameters from the
     cgapar table, and performs calculations/extracts information in the cgarun table."""
@@ -19,15 +24,8 @@ class CGAAnalysis(object):
         values = [x for x in self.cursor.execute("""SELECT * FROM cgapar""").fetchall()[0]]
         for i in range(0,len(fields)):
             self.pardict[fields[i]] = values[i]
-        # these hold data
-        self.generations = None
-        self.fitness = None
-        self.parsimony = None
-        self.finitewts = None
-        self.maxfitness = None
-        self.meanfitness = None
-        self.offline = None
-        self.online = None
+        # these hold data so re-fetching from the database (slow) is not necessary
+        self.dataDict = {}
         
         
     def __repr__(self):
@@ -39,122 +37,75 @@ class CGAAnalysis(object):
         return repstr
     
     
-    def get_generations(self):
-        """Determines the generations at which data was taken."""
-        if self.generations is None:
-            self.generations = np.unique([x[0] for x in self.cursor.execute("""SELECT generation FROM cgarun""").fetchall()])
-        return self.generations
-    
-    def get_fitness(self):
-        """Fetches and returns all fitness values recorded during the run."""
-        if self.fitness is None:
-            self.fitness = [x[0] for x in self.cursor.execute("""SELECT fitness FROM cgarun""").fetchall()]
-        return self.fitness
-    
-    def get_parsimony(self):
-        """Fetches and returns all parsimony values recorded during the run."""
-        if self.parsimony is None:
-            self.parsimony = [x[0] for x in self.cursor.execute("""SELECT parsimony FROM cgarun""").fetchall()]
-        return self.parsimony
-    
-    def get_finite_weights(self):
-        """Fetches and returns all fraction-of-weights-which-are-finite terms."""
-        if self.finitewts is None:
-            self.finitewts = [x[0] for x in self.cursor.execute("""SELECT finitewts FROM cgarun""").fetchall()]
-        return self.finitewts
-    
-    def get_mean_parsimony(self):
-        if self.generations is None:
-            _g = self.get_generations()
-        meanpars = []
-        _pars = self.get_parsimony()
-        if not self.pardict.has_key('forestSize'):
-            print 'ERROR.  Cannot determine size of forest.'
-            return None
+    def db_fetch(self,dbField):
+        """Does a simple fetch of the contents of a field in the run database; fields not present in the table will
+        fail, and the contents are dumped into the data dictionary, then returned.  The data dictionary is keyed on 
+        the attribute names: if the key is already present, the stored value is simply returned, rather than
+        re-fetched."""
+        if self.dataDict.has_key(dbField):
+            pass
         else:
-            npop = self.pardict['forestSize']
-        for i in range(0,len(self.generations)):
-            chunk = [x for x in _pars[npop*i:npop*i+npop]]
-            meanpars.append(np.mean(chunk))
-        return np.asarray(meanpars)
-    
-    
-    def get_mean_finite_weights(self):
-        if self.generations is None:
-            _g = self.get_generations()
-        meanfw = []
-        _fw = [x[0] for x in self.cursor.execute("""SELECT finitewts FROM cgarun""").fetchall()]
-        if not self.pardict.has_key('forestSize'):
-            print 'ERROR.  Cannot determine size of forest.'
-            return None
+            dbSelect = """SELECT %s FROM cgarun""" % dbField
+            try:
+                _temp = [x[0] for x in self.cursor.execute(dbSelect).fetchall()]
+            except:
+                raise CGADBException(dbField)
+            if dbField is 'generation':
+                _temp = np.unique(_temp)
+            self.dataDict[dbField] = _temp
+        return self.dataDict[dbField]
+                
+      
+    def db_calc(self,dbField,rfunc=np.mean):
+        """Computes functions of desired fields in the database; these should be 'reducing' functions 
+        (mean, min, max) which operate on all members of the population at a given step.  Results are 
+        stored keyed on (rfunc.func_name)_dbField' in the dataDictionary, and returned by this function.
+        (So any custom function you use needs to have the attribute func_name.) Any necessary db_fetches 
+        are performed first."""
+        key = rfunc.func_name+dbField
+        if self.dataDict.has_key(key):
+            pass
         else:
-            npop = self.pardict['forestSize']
-        for i in range(0,len(self.generations)):
-            chunk = [x for x in _fw[npop*i:npop*i+npop]]
-            meanfw.append(np.mean(chunk))
-        return np.asarray(meanfw)
-            
-    
-    
-    def get_mean_fitness(self):
-        """Calculates and returns the average fitness (over the forest), per sampling step, ignoring trees with negative fitness."""
-        # need generations to determine sampling rate
-        if self.generations is None:
-            _g = self.get_generations()
-        if self.meanfitness is None:
-            self.meanfitness = []
-            _fit = self.get_fitness()
+            _g = self.db_fetch('generation')
+            _temp = self.db_fetch(dbField)
+            calcvals = []
             if not self.pardict.has_key('forestSize'):
                 print 'ERROR.  Cannot determine size of forest.'
                 return None
             else:
                 npop = self.pardict['forestSize']
-            for i in range(0,len(self.generations)):
-                chunk = [x for x in _fit[npop*i:npop*i+npop] if x >= 0] # drops negatives
-                self.meanfitness.append(np.mean(chunk))
-            self.meanfitness = np.asarray(self.meanfitness)
-        return self.meanfitness
+            for i in range(0,len(_g)):
+                if dbField is not 'fitness':
+                    calcvals.append(rfunc([x for x in _temp[npop*i:npop*i+npop]]))
+                else:
+                    # drops positive fitness values
+                    calcvals.append(rfunc([x for x in _temp[npop*i:npop*i+npop] if x <= 0]))
+            self.dataDict[key] = np.asarray(calcvals)
+        return self.dataDict[key]
+          
     
-    
-    def get_max_fitness(self):
-        """Calculates and returns the maximum fitness (over the forest), per sampling step."""
-        if self.generations is None:
-            _g = self.get_generations()
-        if self.maxfitness is None:
-            self.maxfitness = []
-            _fit = self.get_fitness()
-            if not self.pardict.has_key('forestSize'):
-                print 'ERROR.  Cannot determine size of forest.'
-                return None
-            else:
-                npop = self.pardict['forestSize']
-            for i in range(0,len(self.generations)):
-                chunk = [x for x in _fit[npop*i:npop*i+npop]]
-                self.maxfitness.append(np.max(chunk))
-            self.maxfitness = np.asarray(self.maxfitness)
-        return self.maxfitness
-    
-    
-    def get_offline_fitness(self):
+    def offline_fitness_calc(self):
         """Offline performance at time t is defined as the average value, over t, of the best fitness
         that has been seen up to t."""
-        if self.offline is None:
-            self.offline = []
-            mf = self.get_max_fitness()
+        if not self.dataDict.has_key('offline_fitness'):
+            offline = []
+            mf = self.db_calc('fitness',np.max)
             for i in range(1,len(mf)):
-                self.offline.append(np.max(mf[0:i])) 
-            self.offline = (np.asarray(self.offline).cumsum())/xrange(1,len(self.offline)+1)
-        return self.offline
+                offline.append(np.max(mf[0:i])) 
+            offline = (np.asarray(offline).cumsum())/xrange(1,len(offline)+1)
+            self.dataDict['offline_fitness'] = offline
+        return self.dataDict['offline_fitness']
         
     
-    def get_online_fitness(self):
+    def online_fitness_calc(self):
         """Online performance at time t is defined by the average fitness of all individuals that have
         been evaluated up to t steps.  This implementation assumes all members of the forest at each 
         generation are used in the average fitness, which is not strictly true."""
-        if self.online is None:
-            mf = self.get_mean_fitness()
-            self.online = mf.cumsum()/xrange(1,len(mf)+1)
-        return self.online
+        if not self.dataDict.has_key('online_fitness'):
+            mf = self.db_calc('fitness',np.mean)
+            online = mf.cumsum()/xrange(1,len(mf)+1)
+            self.dataDict['online_fitness'] = online
+        return self.dataDict['online_fitness']
     
 
 class CGAAnalysisTests(unittest.TestCase):
@@ -162,55 +113,85 @@ class CGAAnalysisTests(unittest.TestCase):
         # database file to test - need something in ../tests directory (just rename one 
         #    created by a run)
         self.analysis = CGAAnalysis(path='../tests',dbFile='testdb.sqldb')
+        self.dbFields = ['generation','fitness','finitewts','parsimony']
+        self.funcs = [np.mean,np.max]
     
     def testRepr(self):
         print "\n\n----- testing string representation of class -----"
         print self.analysis
     
-    def testGetGenerations(self):
-        print "\n\n----- testing fetch and return of generations -----"
-        g = self.analysis.get_generations()
-        print 'Sampling rate: ', g[1]-g[0]
-        print 'Time range: %d . . . %d' %(g[0],g[-1])
+    def testDBFetch(self):
+        print "\n\n----- testing fetch and return of cgarun info -----"
+        for d in self.dbFields:
+            temp = self.analysis.db_fetch(d)
+            print 'Contents of %s : %f, . . . , %f' % (d,temp[0],temp[-1])
+    
+    def testDBCalc(self):
+        print "\n\n----- testing calculations using db fields -----"
+        for d in self.dbFields:
+            if d is not 'generation':
+                for f in self.funcs:
+                    temp = self.analysis.db_calc(d,f)
+                    print 'Contents of %s(%s) : %f, . . ., %f' %(f.func_name,d,temp[0],temp[-1])
+                
+
+    #def testGetGenerations(self):
+    #    print "\n\n----- testing fetch and return of generations -----"
+    #    g = self.analysis.get_generations()
+    #    print 'Sampling rate: ', g[1]-g[0]
+    #    print 'Time range: %d . . . %d' %(g[0],g[-1])
         
-    def testGetMeanFitness(self):
-        print "\n\n----- testing calculation of mean fitness -----"
-        meanf = self.analysis.get_mean_fitness()
+    #def testGetMeanFitness(self):
+    #    print "\n\n----- testing calculation of mean fitness -----"
+    #    meanf = self.analysis.get_mean_fitness()
         
-    def testGetMaxFitness(self):
-        print "\n\n----- testing calculation of max fitness -----"
-        maxf = self.analysis.get_max_fitness()
+    #def testGetMaxFitness(self):
+    #    print "\n\n----- testing calculation of max fitness -----"
+    #    maxf = self.analysis.get_max_fitness()
         
-    def testGetOnlineFitness(self):
+    def testOnlineFitnessCalc(self):
         print "\n\n----- testing calculation of online fitness -----"
-        online = self.analysis.get_online_fitness()
+        online = self.analysis.online_fitness_calc()
+        print 'Online fitness : %f, . . ., %f' %(online[0],online[-1])
         
-    def testGetOfflineFitness(self):
+    def testOfflineFitnessCalc(self):
         print "\n\n----- testing calculation of offline fitness -----"
-        offline = self.analysis.get_offline_fitness()
+        offline = self.analysis.offline_fitness_calc()
+        print 'Offline fitness : %f, . . ., %f' %(offline[0],offline[-1])
         
+    
     def testPlotFitness(self):
         print "\n\n----- plotting calculated fitness values -----"
         import pylab
-        g = self.analysis.get_generations()
-        meanf = self.analysis.get_mean_fitness()
-        maxf = self.analysis.get_max_fitness()
-        online = self.analysis.get_online_fitness()
-        offline = self.analysis.get_offline_fitness()
-        pylab.subplot(221)
-        pylab.plot(g,meanf,'k-')
+        g = self.analysis.db_fetch('generation')
+        pylab.subplot(321)
+        pylab.plot(g,self.analysis.db_calc('fitness',np.mean),'k-')
         pylab.ylabel('Mean Fitness')
-        pylab.subplot(222)
-        pylab.plot(g,maxf,'k-')
+        pylab.xlim([g[0],g[-1]])
+        pylab.ylim([-600,0.0])
+        pylab.subplot(322)
+        pylab.plot(g,self.analysis.db_calc('fitness',np.max),'k-')
         pylab.ylabel('Max Fitness')
-        pylab.subplot(223)
-        pylab.plot(g,online,'k-')
-        pylab.ylabel('Online Fitness')
-        pylab.subplot(224)
-        pylab.plot(g[1:],offline,'k-')
-        pylab.ylabel('Offline Fitness')
+        pylab.xlim([g[0],g[-1]])
+        pylab.subplot(323)
+        pylab.plot(g,self.analysis.db_calc('parsimony',np.mean),'k-')
+        pylab.ylabel('Mean Parsimony')
+        pylab.xlim([g[0],g[-1]])
+        pylab.subplot(324)
+        pylab.plot(g,self.analysis.db_calc('parsimony',np.max),'k-')
+        pylab.ylabel('Max Parsimony')
+        pylab.xlim([g[0],g[-1]])
+        pylab.subplot(325)
+        pylab.plot(g,self.analysis.db_calc('finitewts',np.mean),'k-')
+        pylab.ylabel('Mean FW')
+        pylab.xlim([g[0],g[-1]])
+        pylab.ylim([0,1.1])
+        pylab.subplot(326)
+        pylab.plot(g,self.analysis.db_calc('finitewts',np.max),'k-')
+        pylab.ylabel('Max FW')
+        pylab.xlim([g[0],g[-1]])
+        pylab.ylim([0,1.1])
         pylab.show()
-        
 
 if __name__ == 'main':
     unittest.main()

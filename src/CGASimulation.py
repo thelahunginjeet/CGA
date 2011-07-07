@@ -37,7 +37,7 @@ class CGAChromosome(object):
 
 class CGASimulation(Subject):
     """Main class that does the simulation, records results, evaluates trees, etc."""
-    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='distance_matrix', selectionMethod='pareto_tournament',elitism=True,forestSize=50, timeSteps=100, sampGen=1, pG = 0.025, pP = 0.025, pHC = 0.1, pM = 0.05, pC = 0.7):
+    def __init__(self, databaseFile, pdbFile, treeGenDict = {'treetype':'fixed','p':5,'r':0.6}, fitnessMethod='distance_matrix', selectionMethod='pareto_tournament',elitism=False,forestSize=50, timeSteps=100, sampGen=1, pG = 0.025, pP = 0.025, pHC = 0.1, pM = 0.05, pC = 0.7):
         super(CGASimulation,self).__init__()
         if not os.path.exists(pdbFile):
             raise IOError, 'something is wrong with your pdb file; check yourself . . .'
@@ -56,7 +56,8 @@ class CGASimulation(Subject):
         self.selectionMethod = selectionMethod
         # elitism can essentially be grafted onto any selection method - ~1/10 of the
         #    population are advanced as copies, without mutation, into the next
-        #    round
+        #    round.  With pareto-type tournaments, it's not clear the "elite" members
+        #    are really elite, so it might be best to turn this off.
         self.elitism = elitism
         # ensures eliteN neq 0 for popSize > 10, and is at least 1
         if self.elitism:
@@ -218,7 +219,8 @@ class CGASimulation(Subject):
         
     
     def pareto_tournament_selection(self, k=0.75):
-        '''Psuedo-Pareto tournament selection for multi-objective offspring.'''
+        '''Psuedo-Pareto tournament selection for multi-objective offspring.  Offspring that are
+        better in a majority (2/3) of the fitness terms win the tournaments.'''
         pOne, pTwo = rchoice(self.population), rchoice(self.population)
         f1 = MATH.array([pOne.fitness,pOne.parsimony,pOne.finitewts])
         f2 = MATH.array([pTwo.fitness,pTwo.parsimony,pTwo.finitewts])
@@ -256,6 +258,7 @@ class CGASimulation(Subject):
                 map(lambda x : x.replaceData(self.jointFrequencies[(i, j)]), pij)
                 weights[(i, j)] = tree.getFunction()
         return weights
+    
     
     
     def evaluate_fitness_distance_matrix(self,tree):
@@ -313,7 +316,9 @@ class CGASimulation(Subject):
         try:
             minw = MATH.min([x for x in weights.values() if MATH.isfinite(x)])
         except ValueError:
-            minw = 0.0 # if there are NO finite weights, don't bother
+            minw = 0.0 # if there are NO finite weights just jump out
+            fitness = MATH.inf
+            return fitness,finitewts
         minw = minw if minw < 0 else 0.0 # no min shift necessary if all weights positive
         accuracy = []
         normalization = minw*len(self.distances)
@@ -324,14 +329,46 @@ class CGASimulation(Subject):
                     accuracy.append(value)
                     normalization += weights[(i,j)]
                     finitewts += 1.0
-        # normalization might be zero, if there are no finite weights
-        if normalization > 0.0:
-            fitness = -1.0*sum(accuracy)/normalization
-        else:
-            fitness = -1.0*MATH.inf
+        # normalization should be a meaningful number
+        fitness = -1.0*sum(accuracy)/normalization
         return fitness,finitewts/len(weights)
-                
     
+    
+    def evaluate_fitness_topN_weighted_accuracy(self,tree):
+        """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
+        defined as:
+            fitness = -1.0*sum(ws_ij*d_ij)/sum(ws_ij),
+        where d_ij is the dimensionless matrix of (positive) distances, and ws_ij = w_ij + min(min(w_ij),0).
+        The -1.0 multiplier insures better outcomes = increasing fitness.  This function is only computed
+        using the N largest scores, a degree of truncation typically used for these algorithms .
+        """
+        # compute the weights
+        weights = self.compute_wij(tree)
+        finitewts = 0.0
+        N = len(self.indices)
+        # ignore everything but the top N weights
+        wkeys,wvals = zip(*sorted(weights.iteritems(), key = lambda (k,v): (v,k))[-1:-N:-1])
+        try:
+            minw = MATH.min([x for x in wvals if MATH.isfinite(x)])
+        except ValueError:
+            minw = 0.0         # there are NO finite topN weights; no need to keep calculating
+            fitness = MATH.inf # bad value
+            return fitness,finitewts
+        # not all weights are nonsense
+        minw = minw if minw < 0 else 0.0
+        accuracy = []
+        normalization = minw*len(self.distances)
+        for i in range(0,len(wkeys)):
+            if wkeys[i] in self.distances:
+                if MATH.isfinite(wvals[i]):
+                    value = (wvals[i] + minw)*((self.distances[wkeys[i]] - self.proteinMinimum)/self.proteinDiameter)
+                    accuracy.append(value)
+                    normalization += wvals[i]
+                    finitewts += 1.0
+        # normalization should be a meaningful number
+        fitness = -1.0*sum(accuracy)/normalization
+        return fitness,finitewts/len(wvals)
+                    
     # potentially deprecated?
     def calculate_accuracy(self,weights):
         """Calculates the accuracy from an input dictionary of weights, keyed on the same indices as the
@@ -366,6 +403,7 @@ class CGASimulationTests(unittest.TestCase):
             tree = CGAGenerator.generate_special_tree(t)
             print '%s : %s' % (t,tree.getString())
             print 'Weighted accuracy fitness : ',self.mySimulation.evaluate_fitness_weighted_accuracy(tree)
+            print 'Top N weighted accuracy fitness : ',self.mySimulation.evaluate_fitness_topN_weighted_accuracy(tree)
             print 'Distance matrix fitness : ',self.mySimulation.evaluate_fitness_distance_matrix(tree)
            
     #def testCGAChromosome(self):
@@ -378,7 +416,7 @@ class CGASimulationTests(unittest.TestCase):
     #        print 'Fitness %f <= %f' %(c1.fitness,c2.fitness)
     #    print 'Maximum fitness : ',MATH.max([c1,c2]).fitness
     #    print 'Minimum fitness : ',MATH.min([c2,c2]).fitness
-    """
+
     def testAdvance(self):
         print "\n\n----- testing one-step advancement -----"
         print 'Before advancement:'
@@ -388,7 +426,7 @@ class CGASimulationTests(unittest.TestCase):
         print 'After advancement (one step):'
         print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
-    """    
+ 
     def testMultiAdvance(self):
         print "\n\n----- testing advancement of the tree over many steps -----"
         print 'Before advancement:'
@@ -401,7 +439,7 @@ class CGASimulationTests(unittest.TestCase):
         print 'After advancement (%d steps):' % n
         print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.getString(),x.fitness) for x in self.mySimulation.population]
-    """   
+  
     def testDataLogging(self):
         print "\n\n----- testing data logging -----"
         print 'Advancing twice.'
@@ -410,7 +448,7 @@ class CGASimulationTests(unittest.TestCase):
         print 'Logged Data:'
         for k in self.dataLogger.data.keys():
             print k,self.dataLogger.data[k]
-            
+       
     def testPopulation(self):
         print "\n\n----- testing population generation -----"
         print "Population size : ", len(self.mySimulation.population)
@@ -436,7 +474,7 @@ class CGASimulationTests(unittest.TestCase):
         print 'Parent selected: %s, %f' % (parent.tree.getString(),parent.fitness)
         print 'Elapsed time : %f sec' % (time.clock()-t1)
  
-
+    """
     # bring this back in later when we actually are trying to optimize
     def testEvaluateFitness(self):
         print "\n----- testing and timing fitness evaluation -----"

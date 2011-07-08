@@ -21,7 +21,7 @@ def run_cga():
     #        fixed = fixed number of nodes
     #        p = tree size (#nonterminal nodes)
     #        r = bias parameter (prob. of Binary vs Unary node)
-    mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName, sampGen=10, selectionMethod='pareto_tournament', fitnessMethod='topN_weighted_accuracy', forestSize=30, treeGenDict={'treetype':'fixed','p':15,'r':0.5})
+    mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName, sampGen=10, selectionMethod='pareto_tournament', fitnessMethod='topNm1_weighted_accuracy', forestSize=30, treeGenDict={'treetype':'fixed','p':15,'r':0.5})
      # create and attach a DataLogger
     dataLogger = CGALogging.SqliteLogger('../tests')
     mySim.attach(dataLogger)

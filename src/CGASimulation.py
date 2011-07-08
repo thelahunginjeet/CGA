@@ -334,13 +334,13 @@ class CGASimulation(Subject):
         return fitness,finitewts/len(weights)
     
     
-    def evaluate_fitness_topN_weighted_accuracy(self,tree):
+    def evaluate_fitness_topNm1_weighted_accuracy(self,tree):
         """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
         defined as:
             fitness = -1.0*sum(ws_ij*d_ij)/sum(ws_ij),
         where d_ij is the dimensionless matrix of (positive) distances, and ws_ij = w_ij + min(min(w_ij),0).
         The -1.0 multiplier insures better outcomes = increasing fitness.  This function is only computed
-        using the N largest scores, a degree of truncation typically used for these algorithms .
+        using the N-1 largest scores, a degree of truncation typically used for these algorithms .
         """
         # compute the weights
         weights = self.compute_wij(tree)

@@ -6,17 +6,23 @@ purpose : further refinement of now functional CGA project code
 ADD AND COMMENT BELOW, BUT DO NOT DELETE
 
 TODO:
-	- fix LaTeX; extra '\' are being produced, perhaps during database insertion (KB,4/19/11)
-	- check fitness definition; we currently getting values that are both too large (> 2) and
-	too small (< 0, not including nan/inf/-inf). Perhaps we should just go to a direct fit of
-	the pairwise distance matrix, or similar biased towards doing better on the close residues? 
-	(KB,4/19/11)
-	- add ephemeral random numbers to the Data classes; this allows us to dump a lot of stuff
-	that doesn't need to be there ('special' constants like 1/2, 1.0, etc.) (KB,4/19/11)
-	- allow scalarizers (or at least sum) within trees, as well as at the root (KB,4/19/11)
+	- add some variant functions (e.g. log function where log(0) == 0) for variantion and selection
+	- add in reproducibility as a second parameter
+		- can probably use precomputed splits of 10 alignments; memory might be an issue
+	- add in other protein domains that Greg suggested
+	- code other fitness definitions (e.g. CASP, distance-matrix-based, etc.) and compare the results
+	- fitness calculations seemed to have slowed down somewhat, probably because of exception
+	handling (but this might be unavoidable) (KB,5/11/11)
+	- allow scalarizing nodes inside the trees (KB,5/11/11)
+	- may need to add a term to the fitness that rewards a tree for getting a larger fraction of 
+	finite (non-nan,inf,or -inf) weights (KB, 5/13/11)
+	- clean LaTeX up a bit more by using multiple bracket types (easier on the eyes) (KB,5/25/11)
 	
 
 FEATURES / FIXES:
+	- fixed LaTeX; extra '\' are being produced, perhaps during database insertion (KB,4/19/11)
+		- we are now using $ instead of \ for database logging reasons, spaces were fixed as well 
+	- allow scalarizers (or at least sum) within trees, as well as at the root (KB,4/19/11)
 	- redesign of tables and database logging; see CGALogging
 	- 'None' is not written to the DB; instead we use a numeric code for non-numeric
 		fitness values:
@@ -27,5 +33,16 @@ FEATURES / FIXES:
 		tree.
 	- probably need a bit more deconstruction of file names; the run db has : in the name, which are a 
 		bit of a pain
+	- add ephemeral random numbers to the Data classes; this allows us to dump a lot of stuff
+	that doesn't need to be there ('special' constants like 1/2, 1.0, etc.) (KB,4/19/11)
+	- check fitness definition; we currently getting values that are both too large (> 2) and
+	too small (< 0, not including nan/inf/-inf). Perhaps we should just go to a direct fit of
+	the pairwise distance matrix, or similar biased towards doing better on the close residues? 
+	(KB,4/19/11)
+	- implemented both min-shifted weighted accuracy and 'direct' fit to distance matrices
+	(KB,5/11/11)
+	- changed fitness calculations to ignore infinite/nan weights (KB,5/13/11)
+	- added x**2 to the list of unary functions (KB,5/13/11)
+	- added elitism (outside of selection method, as it can be used with any method), and logged
+	elitism state/parameter in the SQL database (KB,5/25/11)
 	
-

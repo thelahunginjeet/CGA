@@ -14,7 +14,7 @@ import datetime
 def digitize_value(value):
     '''Unbound method to convert nan, inf, and -inf to floating point values (or whatever you
     want, I suppose).  Change the convert dictionary to change the conversion.'''
-    convert = {'nan':-111,'inf':-11,'-inf':-1}
+    convert = {'nan':1,'inf':11,'-inf':111}
     if convert.has_key(str(value)):
         return convert[str(value)]
     else:
@@ -85,6 +85,8 @@ class SqliteLogger(Observer):
         TABLE cgarun: records the whole population at each notify()
             INTEGER generation
             REAL fitness
+            REAL parsimony
+            REAL finitewts
             TEXT function
             TEXT latex
         
@@ -92,12 +94,17 @@ class SqliteLogger(Observer):
             REAL probGrow 
             REAL probPrune 
             REAL probMutate 
-            REAL probCross 
+            REAL probCross
+            REAL probHeadCross 
             TEXT tree_type 
             REAL tree_p 
             REAL tree_r 
             INTEGER forestSize
             TEXT selectionMethod
+            TEXT elitism
+            INTEGER eliteN
+            TEXT fitnessMethod
+            TEXT sampGen
         
     The second database is called 'cgafunctions.sqldb'.  It has a single table cgafunctions which
     counts all the functions we have ever found, over multiple runs.  
@@ -105,6 +112,8 @@ class SqliteLogger(Observer):
             TEXT UNIQUE PRIMARY KEY function
             TEXT latex
             REAL fitness
+            REAL parsimony
+            REAL finitewts
             INTEGER count
     count is appropriately incremented (using a query followed by an update).
     """
@@ -113,9 +122,9 @@ class SqliteLogger(Observer):
     def __init__(self,path):
         assert type(path) is str
         super(SqliteLogger, self).__init__()
-        self.FUNCOLS = "(function, latex, fitness, count)"
-        self.PARCOLS = "(probGrow, probPrune, probMutate, probCross, tree_type, tree_p, tree_r, forestSize, selectionMethod)"
-        self.RUNCOLS = "(generation, fitness, function, latex)"
+        self.FUNCOLS = "(function, latex, fitness, parsimony, finitewts, count)"
+        self.PARCOLS = "(probGrow, probPrune, probMutate, probCross, probHeadCross, tree_type, tree_p, tree_r, forestSize, selectionMethod, elitism, eliteN, fitnessMethod, sampGen)"
+        self.RUNCOLS = "(generation, fitness, parsimony, finitewts, function, latex)"
         # fire up sqlite3 and access/create the databases
         import sqlite3
         tStamp = '%s'%(datetime.datetime.now())
@@ -134,6 +143,8 @@ class SqliteLogger(Observer):
                                                 function TEXT UNIQUE PRIMARY KEY, 
                                                 latex TEXT, 
                                                 fitness REAL,
+                                                parsimony REAL,
+                                                finitewts REAL,
                                                 count INTEGER);""")
         except sqlite3.IntegrityError:
             print "there was a problem initializing your table . . ."
@@ -146,11 +157,16 @@ class SqliteLogger(Observer):
                                                 probPrune REAL,
                                                 probMutate REAL,
                                                 probCross REAL,
+                                                probHeadCross REAL,
                                                 tree_type TEXT,
                                                 tree_p REAL,
                                                 tree_r REAL,
                                                 forestSize INTEGER,
-                                                selectionMethod TEXT);""")
+                                                selectionMethod TEXT,
+                                                elitism TEXT,
+                                                eliteN INTEGER,
+                                                fitnessMethod TEXT,
+                                                sampGen INTEGER);""")
         except sqlite3.IntegrityError:
             print "there was a problem initializing your table . . ."
         # run table
@@ -160,6 +176,8 @@ class SqliteLogger(Observer):
                 self.runconnection.execute("""CREATE TABLE IF NOT EXISTS cgarun (
                                                 generation INTEGER,
                                                 fitness REAL,
+                                                parsimony REAL,
+                                                finitewts REAL,
                                                 function TEXT,
                                                 latex TEXT);""")
         except sqlite3.IntegrityError:
@@ -170,8 +188,8 @@ class SqliteLogger(Observer):
         for chromosome in subject.population:
             # insert everything from population
             tree = chromosome.tree
-            function, latex, generation, fitness = tree.getString(), tree.getLatex(), kwargs['time'], digitize_value(chromosome.fitness)
-            runvals = tuple([generation,fitness,function,latex])
+            function, latex, generation, fitness, parsimony, finitewts = tree.getString(), tree.getLatex(), kwargs['time'], digitize_value(chromosome.fitness), digitize_value(chromosome.parsimony), digitize_value(chromosome.finitewts)
+            runvals = tuple([generation,fitness,parsimony,finitewts,function,latex])
             # run table update
             self.runconnection.execute("""INSERT OR REPLACE INTO cgarun %s VALUES %s"""%(self.RUNCOLS,runvals))
             self.runconnection.commit()
@@ -180,7 +198,7 @@ class SqliteLogger(Observer):
             cTup = self.funcursor.fetchall()
             if len(cTup) == 0:
                 # first appearance - count should be 1
-                funvals = tuple([function,latex,fitness,1])
+                funvals = tuple([function,latex,fitness,parsimony,finitewts,1])
                 self.funcursor.execute("""INSERT INTO cgafunctions %s VALUES %s"""%(self.FUNCOLS,funvals))
             else:
                 # has appeared before - update counter
@@ -188,7 +206,7 @@ class SqliteLogger(Observer):
             self.funconnection.commit()
         # update the cgaruns table - only occurs during first notify()
         if int(kwargs['time']) == 0:
-            parvals = (subject.pG,subject.pP,subject.pM,subject.pC,subject.treeGenDict['treetype'],subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.selectionMethod)
+            parvals = (subject.pG,subject.pP,subject.pM,subject.pC,subject.pHC,subject.treeGenDict['treetype'],subject.treeGenDict['p'],subject.treeGenDict['r'],subject.forestSize,subject.selectionMethod,subject.elitism.__repr__(),subject.eliteN,subject.fitnessMethod,subject.sampGen)
             self.runconnection.execute("""INSERT OR REPLACE INTO cgapar %s VALUES %s"""%(self.PARCOLS,parvals))
             self.runconnection.commit()
         

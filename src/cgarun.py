@@ -18,7 +18,7 @@ def run_cga():
     #    default.  You can set single parameters in a field, or multiple parameters as a
     #    dict.
     cgap = CGAParameters.CGAParameters()
-    cgap.set('timing',timeSteps=1500)
+    cgap.set('timing',timeSteps=100,sampGen=1)
     cgap.set(fitness={'weighted_accuracy':True,'parsimony':True,'finitewts':False})
     mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName,cgap=cgap)
      # create and attach a DataLogger

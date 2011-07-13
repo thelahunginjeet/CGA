@@ -9,6 +9,7 @@ Example script to do offline runs of the CGA.
 # if you want to collect data, import CGALogging
 import CGASimulation, CGALogging, CGAParameters
 from numpy import max
+import time
 
 def run_cga():
     # which db and pdb file to use?
@@ -18,8 +19,9 @@ def run_cga():
     #    default.  You can set single parameters in a field, or multiple parameters as a
     #    dict.
     cgap = CGAParameters.CGAParameters()
-    cgap.set('timing',timeSteps=100,sampGen=1)
+    cgap.set('timing',timeSteps=10,sampGen=1)
     cgap.set(fitness={'weighted_accuracy':True,'parsimony':True,'finitewts':False})
+    t = time.clock()
     mySim = CGASimulation.CGASimulation(databaseFile=proteinDBFileName, pdbFile=pdbFileName,cgap=cgap)
      # create and attach a DataLogger
     dataLogger = CGALogging.SqliteLogger('../tests')
@@ -33,7 +35,7 @@ def run_cga():
         print 'working on generation %d' % n
         mySim.advance()
     mySim.detach(dataLogger)
-    
+    print 'Elapsed time %f:' % (time.clock()-t)
     
 if __name__ == '__main__':
     rundata = run_cga()

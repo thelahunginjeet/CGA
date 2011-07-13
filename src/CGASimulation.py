@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import unittest, os, time
+import unittest, os, time, copy
 from scipy import mean,log
 from scipy.linalg import inv
 import numpy as MATH
@@ -27,8 +27,8 @@ class CGAChromosome(object):
         self.fitnessVals = fitnessVals
     
     def copy(self):
-        return CGAChromosome(self.tree.copy(), self.fitnessVals)
-
+        return CGAChromosome(self.tree.copy(), copy.copy(self.fitnessVals))
+    
     """
     def __cmp__(self, other):
         assert self.fitness is not None
@@ -172,7 +172,6 @@ class CGASimulation(Subject):
             for n in mother.tree.getNodes():
                 if urand() < mutP['pM']:
                     CGAGenerator.point_mutate(mother.tree, n)
-                    fitEval = True
         elif r < mutP['pC'] + mutP['pHC'] + mutP['pM'] + mutP['pP']: # pruning - guaranteed to do one pruning operation
             fitEval = True
             mNode = rchoice(mother.tree.getNodes())
@@ -184,7 +183,7 @@ class CGASimulation(Subject):
         else: # offspring will just be a copy
             pass
         if fitEval:
-            mother.fitVals = self.evaluate_fitness(mother.tree)
+            mother.fitnessVals = self.evaluate_fitness(mother.tree)
         return mother
          
     
@@ -380,8 +379,8 @@ class CGASimulationTests(unittest.TestCase):
         self.cgap.set(fitness={'weighted_accuracy':True,'parsimony':True,'finitewts':False})
         self.mySimulation = CGASimulation('../tests/pdz_test.db', '../tests/1iu0.pdb',cgap=self.cgap)
         self.mySimulation.populate()
-        self.sqliteLogger = SqliteLogger('../tests')
-        self.mySimulation.attach(self.sqliteLogger)
+        #self.sqliteLogger = SqliteLogger('../tests')
+        #self.mySimulation.attach(self.sqliteLogger)
     
     def testKnownTrees(self):
         print "\n\n----- calculating fitness of known trees -----"
@@ -408,10 +407,12 @@ class CGASimulationTests(unittest.TestCase):
         print "\n\n----- testing advancement of the tree over many steps -----"
         print 'Before advancement:'
         print 'Pop. size : ', len(self.mySimulation.population)
+        print 'Fitness order : ', self.mySimulation.fitStrings
         n = 10
         print [(x.tree.getString(),x.fitnessVals) for x in self.mySimulation.population]
         for i in range(n):
             self.mySimulation.advance()
+            print [(x.tree.getString(),x.fitnessVals) for x in self.mySimulation.population]
         print 'After advancement (%d steps):' % n
         print 'Pop. size : ', len(self.mySimulation.population)
         print [(x.tree.getString(),x.fitnessVals) for x in self.mySimulation.population]

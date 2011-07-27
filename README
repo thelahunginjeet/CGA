@@ -17,6 +17,7 @@ TODO:
 	- may need to add a term to the fitness that rewards a tree for getting a larger fraction of 
 	finite (non-nan,inf,or -inf) weights (KB, 5/13/11)
 	- clean LaTeX up a bit more by using multiple bracket types (easier on the eyes) (KB,5/25/11)
+	- CGAParameters() is basically a glorified dict-of-dicts; OK to keep it this way? (KB, 7/11/11)
 	
 
 FEATURES / FIXES:
@@ -45,4 +46,9 @@ FEATURES / FIXES:
 	- added x**2 to the list of unary functions (KB,5/13/11)
 	- added elitism (outside of selection method, as it can be used with any method), and logged
 	elitism state/parameter in the SQL database (KB,5/25/11)
+	- all parameters are now passed in via a class (KB, 7/11/11)
+	- elitism has been removed; for multi-objective GPs, it's not clear what elitism even means 
+	(should one of the fitness functions be privileged over any other?), and using sequential
+	mutation we can always at least ensure that some pareto tournament winners are advanced 
+	without mutation (KB, 7/11/11)
 	

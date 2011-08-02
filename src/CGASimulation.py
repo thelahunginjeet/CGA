@@ -61,6 +61,8 @@ class CGASimulation(Subject):
         self.population = []
         # running simulation time, not total time (that is a parameter)
         self.time = 0
+        # 'private' dictionary of data shared by fitness functions
+        self._sharedData = {}
     
     
     def prepare_parameters(self):
@@ -218,12 +220,12 @@ class CGASimulation(Subject):
     def evaluate_fitness(self,tree,**kwargs):
         """A dispatcher to do fitness evaluations; the functions to be evaluated are
         stored as strings in self.fitStrings."""
-        # many functions will use the calculated weights
-        wij = self.calculate_wij(tree)
+        # clear the shared dict from the last calculation
+        self._sharedData = {}
         fitVals = []
         for fs in self.fitStrings:
             fsToEval = 'calculate_'+fs
-            fval = getattr(self,fsToEval)(tree,wij,**kwargs)
+            fval = getattr(self,fsToEval)(tree,**kwargs)
             fitVals.append(fval)
         return fitVals 
     
@@ -244,24 +246,42 @@ class CGASimulation(Subject):
         return weights
 
     
-    def calculate_parsimony(self,tree,wij):
+    def calculate_parsimony(self,tree):
         """Simplest possible parsimony term; the negative of the tree size."""
-        return -1.0*len(tree.getNodes())
+        if self._sharedData.has_key('nNodes'):
+            return -1.0*self._sharedData['nNodes']
+        nNodes = len(tree.getNodes())
+        self._sharedData['nNodes'] = nNodes
+        return -1.0*nNodes
 
     
-    def calculate_finitewts(self,tree,wij):
+    def calculate_finitewts(self,tree):
         """Computes the fraction of weights which are finite (not NaN, Inf, or -Inf)."""
-        finitewts = 0.0
-        for i,j in wij:
-            if (i,j) in self.distances:
-                if MATH.isfinite(wij[(i,j)]):
-                    finitewts += 1.0
-        return finitewts/len(wij)
+        if self._sharedData.has_key('wij'):
+            wij = self._sharedData['wij']
+        else:
+            wij = self.calculate_wij(tree)
+            self._sharedData['wij'] = wij
+        if self._sharedData.has_key('nFinite'):
+            nFinite = self._sharedData['nFinite']
+        else:
+            nFinite = 0
+            for i,j in wij:
+                if (i,j) in self.distances:
+                    if MATH.isfinite(wij[(i,j)]):
+                        nFinite += 1
+            self._sharedData['nFinite'] = nFinite
+        return MATH.float(nFinite)/len(wij)
     
-    
-    def calculate_topNm1_finitewts(self,tree,wij):
+    # FIX THIS
+    def calculate_topNm1_finitewts(self,tree):
         """Computes the fraction of weights which are finite (not NaN, Inf, or -Inf),
         restricted to just the largest N-1 weights."""
+        if self._sharedData.has_key('wij'):
+            wij = self._sharedData['wij']
+        else:
+            wij = self.calculate_wij(tree)
+            self._sharedData['wij'] = wij
         finitewts = 0.0
         N = len(self.indices)
         wkeys,wvals = zip(*sorted(wij.iteritems(), key = lambda (k,v): (v,k))[-1:-N:-1])
@@ -272,14 +292,20 @@ class CGASimulation(Subject):
         return finitewts/len(wvals)
         
     
-    def calculate_distance_matrix(self,tree,wij):
+    def calculate_distance_matrix(self,tree):
         """Accepts an input tree (member of the forest) and evaluates its fitness, defined
         as a transformed direct fit to the dimensionless distance matrix.  Specifically:
             fitness = -0.5*sum((a*w_ij + b - d_ij)^2)
         This maps fitness to [0,1], and allows an arbitrary linear rescaling of the scores.
         The optimal rescaling is a simple linear algebra subproblem.
         """
+        if self._sharedData.has_key('wij'):
+            wij = self._sharedData['wij']
+        else:
+            wij = self.calculate_wij(tree)
+            self._sharedData['wij'] = wij
         # accumulators allow calculation of best linear transformation
+        nFinite = 0
         SDW = 0.0
         W = []
         D = []
@@ -289,6 +315,7 @@ class CGASimulation(Subject):
                     W.append(wij[(i,j)])
                     D.append((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
                     SDW += ((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)*wij[(i,j)]
+                    nFinite += 1
         # linear algebra to get transformation
         SW2 = sum([x**2 for x in W])
         SW = sum([x for x in W])
@@ -306,17 +333,25 @@ class CGASimulation(Subject):
             fitness = -1.0*MATH.inf
         else:
             fitness = -0.5*((resid*resid).sum())
+        if not self._sharedData.has_key('nFinite'):
+            self._sharedData['nFinite'] = nFinite
         return fitness
         
     
     
-    def calculate_weighted_accuracy(self,tree,wij):
+    def calculate_weighted_accuracy(self,tree):
         """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
         defined as:
             fitness = -1.0*sum(ws_ij*d_ij)/sum(ws_ij),
         where d_ij is the dimensionless matrix of (positive) distances, and ws_ij = w_ij + min(min(w_ij),0).
         The -1.0 multiplier insures better outcomes = increasing fitness.
         """
+        nFinite = 0
+        if self._sharedData.has_key('wij'):
+            wij = self._sharedData['wij']
+        else:
+            wij = self.calculate_wij(tree)
+            self._sharedData['wij'] = wij
         try:
             minw = MATH.min([x for x in wij.values() if MATH.isfinite(x)])
         except ValueError:
@@ -332,12 +367,15 @@ class CGASimulation(Subject):
                     value = (wij[(i,j)] + minw)*((self.distances[(i,j)] - self.proteinMinimum)/self.proteinDiameter)
                     accuracy.append(value)
                     normalization += wij[(i,j)]
+                    nFinite += 1
         # normalization should be a meaningful number
         fitness = -1.0*sum(accuracy)/normalization
+        if not self._sharedData.has_key('nFinite'):
+            self._sharedData['nFinite'] = nFinite
         return fitness
     
     
-    def calculate_topNm1_weighted_accuracy(self,tree,wij):
+    def calculate_topNm1_weighted_accuracy(self,tree):
         """Accepts an input tree (member of the forest) and evaluates its fitness, currently 
         defined as:
             fitness = -1.0*sum(ws_ij*d_ij)/sum(ws_ij),
@@ -345,6 +383,11 @@ class CGASimulation(Subject):
         The -1.0 multiplier insures better outcomes = increasing fitness.  This function is only computed
         using the N-1 largest scores, a degree of truncation typically used for these algorithms .
         """
+        if self._sharedData.has_key('wij'):
+            wij = self._sharedData['wij']
+        else:
+            wij = self.calculate_wij(tree)
+            self._sharedData['wij'] = wij
         N = len(self.indices)
         # ignore everything but the top N weights
         wkeys,wvals = zip(*sorted(wij.iteritems(), key = lambda (k,v): (v,k))[-1:-N:-1])

@@ -19,8 +19,8 @@ class DataMethodFactory(dict):
 	def __init__(self):
 		# the data functions (with random number generator)
 		self.data = {}
-		self.data['e'] = ("e", r' e', MATH.e)
-		self.data['pi'] = ("pi", r'$pi', MATH.pi)
+		self.data['e'] = ("E", r' e', MATH.e)
+		self.data['pi'] = ("PI", r'$pi', MATH.pi)
 		# ephemeral random number
 		rnum = randint(-1,2)*uniform() + randint(-3, 4) 
 		self.data[str(rnum)] = (str(rnum), r' %s'%str(rnum), rnum)

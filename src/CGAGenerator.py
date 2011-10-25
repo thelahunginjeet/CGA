@@ -233,6 +233,25 @@ class CGAGenerator(object):
 			n5.setChildren(d3)
 			n6.setChildren(d4,n7)
 			n7.setChildren(d5)
+		elif treename == 'BADTR':
+			root = ScalarNode(CGAFunctions.DataMethodFactory().getScalar('sum_ij'))
+			n1 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('divide'))
+			d1 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			n2 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('subtract'))
+			n3 = BinaryNode(CGAFunctions.DataMethodFactory().getBinary('divide'))
+			n4 = ScalarNode(CGAFunctions.DataMethodFactory().getScalar('tr'))
+			d2 = DataNode(CGAFunctions.DataMethodFactory().getData('e'))
+			n5 = UnaryNode(CGAFunctions.DataMethodFactory().getUnary('transpose'))
+			d3 = DataNode(CGAFunctions.DataMethodFactory().getData('p_i'))
+			d4 = d2 = DataNode(CGAFunctions.DataMethodFactory().getData('e'))
+			# set up the tree
+			specialTree = AlgorithmTree(root)
+			root.setChildren(n1)
+			n1.setChildren(d1,n2)
+			n2.setChildren(n3,n4)
+			n3.setChildren(d2,n5)
+			n4.setChildren(d3)
+			n5.setChildren(d4)
 		else:
 			specialTree = None
 		return specialTree
@@ -433,11 +452,11 @@ class CGAGeneratorTests(unittest.TestCase):
 	
 	def testSpecialTreeGeneration(self):
 		print "\n\n----- testing generation of 'special' trees -----"
-		treeset = ['MI','OMES','DOES NOT EXIST']
+		treeset = ['MI','OMES','BADTR','DOES NOT EXIST']
 		for t in treeset:
 			tree = CGAGenerator.generate_special_tree(t)
 			if tree is not None:
-				print '%s : %s', (t,tree.getString())
+				print '%s : %s', (t,tree.getString(),tree.getLatex())
 			else:
 				print 'Tree %s does not exist.' % t
 		

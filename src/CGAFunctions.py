@@ -2,6 +2,7 @@
 
 import unittest, operator, random
 import numpy as MATH
+from scipy.linalg import svdvals,det
 from numpy.random import randint, uniform
 from CGAPreprocessing import Utilities
 
@@ -53,6 +54,8 @@ class DataMethodFactory(dict):
 		self.scalars = {}
 		self.scalars['tr'] = ("tr(%s)", r' {$mathrm{Tr}}$left( %s$right) ', self.nantrace)
 		self.scalars['sum_ij'] = ("sum_ij(%s)", r'$Sigma_{ij}$left( %s$right) ', self.dsum)
+		#self.scalars['s_max'] = ("s_m(%s)",r'$sigma_{m}$left( %s$right)',self.sigmax)
+		#self.scalars['det'] = ("det(%s)",r'{$mathrm{Det}}$left( %s$right) ',self.determinant)
 		self.SCALARS = len(self.scalars)
 		
 		# reverse dicts (wait for it . . . ah) for accessing by .string
@@ -108,7 +111,7 @@ class DataMethodFactory(dict):
 
 	@staticmethod
 	def nantrace(x):
-		# nan compatible trace
+		"""nan-ignorning trace"""
 		try:
 			y = MATH.nansum(x.diagonal())
 		except:
@@ -117,17 +120,43 @@ class DataMethodFactory(dict):
 
 	@staticmethod
 	def dsum(x):
-		# nan compatible sum of the elements of a matrix
+		"""nan-ignoring sum of the elements of a matrix"""
 		try:
 			y = MATH.nansum(x)
 		except IndexError:
 			y = x
 		return y
 	
-	@ staticmethod
+	@staticmethod
 	def sqr(x):
 		return x**2
 
+	@staticmethod
+	def sigmax(x):
+		"""largest singular value"""
+		if MATH.isscalar(x):
+			return x
+		try:
+			y = svdvals(x)[0]
+		except:
+			y = 1.0
+		return y
+	
+	@staticmethod
+	def determinant(x):
+		"""matrix determinant (real part - potential imag. part ignored).  Bad
+		matrices (those containing Nan or Inf) get a default value of 1.0"""
+		if MATH.isscalar(x):
+			return x
+		try:
+			y = det(x)
+			if MATH.iscomplex(y):
+				y = MATH.float(MATH.real(y))
+		except:
+			y = 1.0
+		return y
+		
+	
 
 class CGAFunctionsTests(unittest.TestCase):
 	def setUp(self):
@@ -135,21 +164,26 @@ class CGAFunctionsTests(unittest.TestCase):
 	
 	def testName(self):
 		print "\n----- testing function names -----"
-		self.assertEquals(self.methodFactory.getData('pi').string, 'pi')
+		self.assertEquals(self.methodFactory.getData('pi').string, 'PI')
 		self.assertEquals(self.methodFactory.getScalar('tr').string, 'tr(%s)')
 		self.assertEquals(self.methodFactory.getUnary('log').string, 'log(%s)')
 		self.assertEquals(self.methodFactory.getBinary('add').string, '(%s+%s)')
+		#self.assertEquals(self.methodFactory.getScalar('s_max').string, 's_m(%s)')
 		
 	def testFunctions(self):
 		print "\n----- testing function evaluation -----"
 		mynansum = self.methodFactory.getScalar('sum_ij')
 		mynantrace = self.methodFactory.getScalar('tr')
+		#mydet = self.methodFactory.getScalar('det')
+		#mysmax = self.methodFactory.getScalar('s_max')
 		mylog = self.methodFactory.getUnary('log')
 		mysum = self.methodFactory.getBinary('add')
 		self.assertAlmostEquals(0.0,mylog.function(1.0))
 		self.assertAlmostEquals(2.0,mysum.function(1.0,1.0))
 		self.assertAlmostEquals(2.0,mynansum.function([1.0,MATH.nan,1.0,MATH.nan]))
 		self.assertAlmostEquals(2.0,mynansum.function(MATH.eye(2)))
+		#self.assertAlmostEquals(1.0,mydet.function(1.0))
+		#self.assertAlmostEquals(1.0,mysmax.function(MATH.eye(2)))
 	
 	def testReverseAccess(self):
 		print "\n----- testing reverse dictionary access -----"

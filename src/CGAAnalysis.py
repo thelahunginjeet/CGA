@@ -52,7 +52,7 @@ class CGAFunctionParser(object):
         constant :: E or PI
         fnumber  :: [+/-]+digits+[.digits]
         operand  :: variable, constant, or fnumber
-        prefix   :: tr, exp, sum_ij, log, tanh, sinh, cosh
+        prefix   :: tr, det, s_m, exp, sum_ij, log, tanh, sinh, cosh
         postfix  :: **2 or ^T
         plusop   :: + or -
         multop   :: * or /
@@ -63,7 +63,7 @@ class CGAFunctionParser(object):
         self._fnumber = Combine(Optional("-")+Word(nums)+Optional("."+Word(nums)))
         self._operand = self._variable | self._constant | self._fnumber
         
-        self._prefix = Literal("tr") | Literal("exp") | Literal("sum_ij") | Literal("log") | Literal("tanh") | Literal("sinh") | Literal("cosh")
+        self._prefix = Literal("tr") | Literal("exp") | Literal("sum_ij") | Literal("log") | Literal("tanh") | Literal("sinh") | Literal("cosh") | Literal("det") | Literal("s_m")
         self._postfix = Literal("**2") | Literal("^T")
         self._plusop = oneOf('+ -')
         self._multop = oneOf('* /')
@@ -103,9 +103,9 @@ class CGAFunctionParser(object):
 
 class CGAFunctionAnalysis(object):
     """Performs post-hoc analysis on the cgafunctions database, which logs everything ever seen
-    throughout multiple runs.  The filename will typically be cgafunctions.db, but this is not
-    required - the SQL table name (cgafunctions) is, however."""
-    def __init__(self,path,dbFileName):
+    throughout multiple runs.  The filename will typically be cgafunctions.sqldb, but this is 
+    not required - the SQL table name (cgafunctions) is, however."""
+    def __init__(self,path,dbFileName='cgafunctions.sqldb'):
         self.path = path
         self.dbFileName = dbFileName
         fName = os.path.join(self.path,self.dbFileName)
@@ -130,7 +130,7 @@ class CGAFunctionAnalysis(object):
             repstr += '\t%s\n' % k
         return repstr
     
-    def select_records(self,dbField,cmp,cutoff,negOnly):
+    def select_records(self,dbField,cmp,cutoff,negOnly=True):
         """This database can be large, so unlike CGAAnalysis(), the fetching function here uses
         SQL to pull only records matching the desired criteria, rather than prepulling everything
         and using python to sort it.  Usage example:
@@ -304,8 +304,8 @@ class CGAAnalysisTests(unittest.TestCase):
                        "cosh(p_i)^T + E", \
                        "(p_i*(p_i)^T)**2",\
                        "exp((p_i+2.10987719))",\
-                       "tr(tanh(-1.0))",\
-                       "tr(PI)", \
+                       "s_m(tanh(-1.0))",\
+                       "det(PI)", \
                        "p_ij*(1/N)", \
                        "(p_i+p_j)",\
                        "log(p_i*(p_ij+E))",\

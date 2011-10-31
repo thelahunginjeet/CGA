@@ -210,9 +210,25 @@ class CGASimulation(Subject):
         f1 = MATH.array(pOne.fitnessVals)[self.selectOn]
         f2 = MATH.array(pTwo.fitnessVals)[self.selectOn]
         if urand() < k:
-            return pOne if MATH.sign((f1-f2)).sum() > 0 else pTwo
+            return pOne if MATH.sign((f1-f2)).sum() >= 0 else pTwo
         else:
             return pOne if MATH.sign((f1-f2)).sum() < 0 else pTwo
+        
+    
+    def tournament_selection(self, k=0.75):
+        '''Tournament selection for multi-objective offspring.  Offspring that are better (larger 
+        sum of all selected-on fitness functions) win the tournaments a fraction k of the time.  To use 
+        this selection method, you should make sure all your selectable fitness functions have the same
+        sign (positive, moving away from zero for greater fitness or negative, moving towards zero for
+        greater fitness).'''
+        pOne, pTwo = rchoice(self.population),rchoice(self.population)
+        f1 = MATH.array(pOne.fitnessVals)[self.selectOn].sum()
+        f2 = MATH.array(pOne.fitnessVals)[self.selectOn].sum()
+        if urand() < k:
+            return pOne if MATH.sign(f1-f2) >= 0 else pTwo
+        else:
+            return pOne if MATH.sign(f1-f2) < 0 else pTwo
+        
     
     
     def evaluate_fitness(self,tree,**kwargs):
